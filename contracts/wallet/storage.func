@@ -1,0 +1,34 @@
+(int, int, int, int, int, int, int, int, slice, slice, cell) load_data() inline {
+    slice ds = get_data().begin_parse();
+    return (
+        ds~load_coins(), 
+        ds~load_uint(64), 
+        ds~load_coins(),
+        ds~load_coins(),
+        ds~load_uint(32), 
+        ds~load_uint(32), 
+        ds~load_coins(),
+        ds~load_coins(),
+        ds~load_msg_addr(), 
+        ds~load_msg_addr(), 
+        ds~load_ref()
+    );
+}
+
+() save_data (int balance, int withdraw_cnt, int tot_stake_ton_amount, int tot_stake_uton_amount, int last_stake_timestamp, int last_stake_price, int last_stake_ton_amount, int last_stake_uton_amount, slice owner_address, slice jetton_master_address, cell jetton_wallet_code) impure inline {
+    set_data(
+        pack_jetton_wallet_data(
+            balance, 
+            withdraw_cnt, 
+            tot_stake_ton_amount,
+            tot_stake_uton_amount,
+            last_stake_timestamp,
+            last_stake_price,
+            last_stake_ton_amount,
+            last_stake_uton_amount,
+            owner_address, 
+            jetton_master_address, 
+            jetton_wallet_code
+        )
+    );
+}

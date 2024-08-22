@@ -1,0 +1,240 @@
+#include "imports/stdlib.fc";
+#include "libs/utils.func";
+#include "wallet/op.func";
+#include "wallet/params.func";
+#include "withdraw/op.func";
+#include "withdraw/params.func";
+#include "minter/op.func";
+#include "minter/params.func";
+#include "minter/errors.func";
+#include "minter/storage.func";
+
+(int) get_day(int timestamp) inline {
+  return timestamp / ONE_DAY;
+}
+
+(int) get_current_day() inline {
+    return get_day(now());
+}
+
+(int) get_price(int last_price_day, int last_price, int price_inc, int current_day) inline {
+  return last_price + (current_day - last_price_day) * price_inc;
+}
+
+(int) get_ton_amount(int uton_amount, int price) inline {
+    return uton_amount * (PRICE_BASE + price) / PRICE_BASE;
+}
+
+(int) get_uton_amount(int ton_amount, int price) inline {
+    return ton_amount * PRICE_BASE / (PRICE_BASE + price);
+}
+
+() mint_tokens(slice user_address, cell jetton_wallet_code, int amount, cell master_msg) impure {
+    cell state_init = calculate_jetton_wallet_state_init(user_address, my_address(), jetton_wallet_code);
+    slice to_wallet_address = calculate_jetton_wallet_address(state_init);
+    var msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(to_wallet_address)
+        .store_coins(amount)
+        .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+        .store_ref(state_init)
+        .store_ref(master_msg);
+    send_raw_message(msg.end_cell(), 1);
+}
+
+() pending_withdraw(
+    slice user_address, 
+    int withdraw_id, 
+    int ton_amount,
+    int uton_amount,
+    int burn_timestamp,
+    int burn_price,
+    cell withdraw_code,
+    cell master_msg) impure {
+    cell state_init = calculate_withdraw_state_init(
+        withdraw_id, user_address, my_address(), withdraw_code
+    );
+    slice withdraw_address = calcualte_withdraw_address(state_init);
+    var msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(withdraw_address)
+        .store_coins(0)
+        .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+        .store_ref(state_init)
+        .store_ref(master_msg);
+    send_raw_message(msg.end_cell(), 64);
+}
+
+() recv_internal(int balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+
+    if (flags & 1) { 
+        return ();
+    }
+    slice sender_address = cs~load_msg_addr();
+  
+    (int total_supply, int last_price_day, int last_price, int price_inc, int debt_ton, slice admin_address, slice ton_receiver_address, cell content, cell jetton_wallet_code) = load_data();
+
+    if (in_msg_body.slice_empty?()) {
+        ;; just deposit
+        return ();
+    }
+
+    int op = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+
+    if (op == STAKE1) {
+        int ton_amount = msg_value - MINT_FEE - PROCESS_MINT_FEE;
+        throw_unless(INVALID_AMOUNT, ton_amount > 0);
+        ;; first send ton to ton_receiver
+        var msg_to_ton_receiver = begin_cell()
+            .store_uint(0x10, 6)
+            .store_slice(addr)
+            .store_coins(ton_amount)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_uint(STAKE_SAVE, 32)
+            .store_uint(query_id, 64);
+        send_raw_message(msg_to_ton_receiver.end_cell(), 1);
+
+        ;; calculate token amount
+        int timestamp = now();
+        int today = get_day(timestamp);
+        int price = get_price(last_price_day, last_price, price_inc);
+        int uton_amount = get_uton_amount(ton_amount, price);
+
+        ;; then mint token for user
+        var master_msg = begin_cell()
+            .store_uint(MINT, 32)
+            .store_uint(0, 64) 
+            .store_coins(uton_amount)
+            .store_coins(ton_amount)
+            .store_uint(timestamp, 32)
+            .store_uint(price, 32)
+            .store_slice(my_address()) 
+            .store_slice(sender_address) 
+            ;; .store_coins(0) 
+            .store_uint(0, 1)
+        .end_cell();
+
+        mint_tokens(sender_address, jetton_wallet_code, MINT_FEE, master_msg);
+        save_data(total_supply + uton_amount, last_price_day, last_price, price_inc, debt_ton, admin_address, ton_receiver_address, content, jetton_wallet_code, withdraw_code);
+        return ();
+    }
+
+    if (op == BURN_NOTIFICATION) {
+
+        int uton_amount = in_msg_body~load_coins();
+        slice from_address = in_msg_body~load_msg_addr();
+        int withdraw_id = in_msg_body~load_uint(64);
+        slice response_address = in_msg_body~load_msg_addr();
+        ;; check wallet address
+        throw_unless(WRONG_CALLER, equal_slices(calculate_user_jetton_wallet_address(from_address, my_address(), jetton_wallet_code), sender_address));
+
+        ;; calculate ton amount
+        int timestamp = now();
+        int today = get_day(timestamp);
+        int price = get_price(last_price_day, last_price, price_inc);
+        int ton_amount = get_ton_amount(uton_amount, price);
+        
+        ;; reduce supply
+        save_data(total_supply - uton_amount, last_price_day, last_price, price_inc, debt_ton + ton_amount, admin_address, ton_receiver_address, content, jetton_wallet_code, withdraw_code);
+
+        ;; create a pending withdraw for user
+        var master_msg = begin_cell()
+            .store_uint(INIT_WITHDRAW_DATA, 32)
+            .store_uint(0, 64) 
+            .store_coins(uton_amount)
+            .store_coins(ton_amount)
+            .store_uint(timestamp, 32)
+            .store_uint(price, 32)
+            .store_slice(response_address) 
+            ;; .store_coins(0) 
+            .store_uint(0, 1)
+        .end_cell();
+
+        pending_withdraw(from_address, 
+            withdraw_id, 
+            ton_amount, 
+            uton_amount, 
+            timestamp, 
+            price, 
+            withdraw_code,
+            master_msg
+        );
+
+        return ();
+    }
+
+    if (op == WITHDRAW_NOTIFICATION) {
+        int ton_amount = in_msg_body~load_coins();
+        slice from_address = in_msg_body~load_msg_addr();
+        int withdraw_id = in_msg_body~load_uint(64);
+        throw_unless(WRONG_CALLER, equal_slices(calculate_user_withdraw_address(from_address, withdraw_id, my_address(), withdraw_code), sender_address));
+        save_data(total_supply, last_price_day, last_price, price_inc, debt_ton - ton_amount, admin_address, ton_receiver_address, content, jetton_wallet_code, withdraw_code);
+        slice response_address = in_msg_body~load_msg_addr();
+        if (response_address.preload_uint(2) != 0) {
+            var msg = begin_cell()
+                .store_uint(0x10, 6)
+                .store_slice(response_address)
+                .store_coins(ton_amount)
+                .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+                .store_uint(EXCESSES, 32)
+                .store_uint(query_id, 64);
+            send_raw_message(msg.end_cell(), 1);
+        }
+        return ();
+    }
+
+    ;; admin operate
+
+    if (op == UPDATE_ADMIN) {
+        throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        slice new_admin_address = in_msg_body~load_msg_addr();
+        save_data(total_supply, last_price_day, last_price, price_inc, debt_ton, admin_address, ton_receiver_address, content, jetton_wallet_code, withdraw_code);
+        return ();
+    }
+
+    if (op == UPDATE_PRICE_INC) {
+        throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        
+        new_price_inc = in_msg_body~load_uint(64);
+        int today = get_current_day();
+        int price = get_price(last_price_day, last_price, price_inc);
+
+        last_price_day = today;
+        last_price = price;
+        price_inc = new_price_inc;
+        save_data(total_supply, last_price_day, last_price, price_inc, debt_ton, admin_address, ton_receiver_address, content, jetton_wallet_code, withdraw_code);
+    }
+
+    if (op == UPDATE_CONTENT) {
+        throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        save_data(total_supply, last_price_day, last_price, price_inc, debt_ton, admin_address, ton_receiver_address, content, jetton_wallet_code, withdraw_code);
+        return ();
+    }
+
+    throw(0xffff);
+}
+
+(int, int, int, int, int, slice, slice, cell, cell) get_minter_data() method_id {
+    (int total_supply, int last_price_day, int last_price, int price_inc, int debt_ton, slice admin_address, slice ton_receiver_address, cell content, cell jetton_wallet_code, cell withdraw_code) = load_data();
+    return (total_supply, last_price_day, last_price, price_inc, debt_ton, admin_address, ton_receiver_address, content, jetton_wallet_code, withdraw_code);
+}
+
+slice get_wallet_address(slice owner_address) method_id {
+    (_, _, _, _, _, _, _, _, cell jetton_wallet_code, _) = load_data();
+    return calculate_user_jetton_wallet_address(owner_address, my_address(), jetton_wallet_code);
+}
+
+slice get_withdraw_address(slice owner_address, int withdraw_id) method_id {
+    (_, _, _, _, _, _, _, _, _, cell withdraw_code) = load_data();
+    return calculate_user_withdraw_address(owner_address, withdraw_id, my_address(), withdraw_code);
+}
+
+;; _ supported_interfaces() method_id {
+;;     return (
+;;         123515602279859691144772641439386770278, ;; org.ton.introspection.v0
+;;         242422353946785872806511191513850808027 ;; org.ton.jetton.master.v1
+;;     );
+;; }

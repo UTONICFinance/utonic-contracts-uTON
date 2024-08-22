@@ -1,0 +1,13 @@
+;; standard
+const BURN_NOTIFICATION = 0x7bdd97de;
+const EXCESSES = 0xd53276db;
+const INTERNAL_TRANSFER = 0x178d4519;
+
+;; other
+const STAKE1 = 60;
+const STAKE_SAVE = 61
+const WITHDRAW_NOTIFICATION = 62;
+
+const UPDATE_ADMIN = 70;
+const UPDATE_PRICE_INC = 71;
+const UPDATE_CONTENT = 72;
