@@ -10,7 +10,7 @@ $ git clone git@github.com:UTONICFinance/utonic-contracts.git
 
 ```
 $ cd utonic-contracts
-$ yarn
+$ npm install
 ```
 
 ### compile
@@ -18,17 +18,17 @@ $ yarn
 To compile minter
 
 ```
-$ yarn compileminter
+$ npm run compileminter
 ```
 
 To compile wallet
 
 ```
-$ yarn compilewallet
+$ npm run compilewallet
 ```
 
 To compile withdraw
 
 ```
-$ yarn compilewithdraw
+$ npm run compilewithdraw
 ```
