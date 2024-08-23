@@ -1,14 +1,11 @@
-import { Address, Cell, StateInit, beginCell, contractAddress, storeStateInit, toNano } from "ton-core";
-import { hex } from "../build/minter.compiled.json";
-import { hex as walletHex } from "../build/wallet.compiled.json";
-import { hex as withdrawHex } from "../build/withdraw.compiled.json";
 
-import qs from "qs";
-import qrcode from "qrcode-terminal";
+import * as fs from "fs";
+import { getHttpEndpoint } from "@orbs-network/ton-access";
+import { mnemonicToWalletKey } from "ton-crypto";
+import { TonClient, Cell, Address, WalletContractV4, beginCell } from "@ton/ton";
+import UTonic from "../wrappers/UTonic";
 
 const OFF_CHAIN_CONTENT_PREFIX = 0x01;
-const JETTON_WALLET_CODE = Cell.fromBoc(Buffer.from(walletHex,"hex"))[0];
-const WITHDRAW_CODE = Cell.fromBoc(Buffer.from(withdrawHex,"hex"))[0];
 
 function bufferToChunks(buff: Buffer, chunkSize: number) {
 	const chunks: Buffer[] = [];
@@ -52,7 +49,9 @@ function jettonMinterInitData(
   price_inc: number,
   owner: Address,
   ton_receiver: Address,
-  metadata: string
+  metadata: string,
+  walletCode: Cell,
+  withdrawCode: Cell
 ): Cell {
   return beginCell()
     .storeCoins(0)
@@ -63,72 +62,62 @@ function jettonMinterInitData(
     .storeAddress(owner)
     .storeAddress(ton_receiver)
     .storeRef(encodeOffChainContent(metadata))
-    .storeRef(JETTON_WALLET_CODE)
-    .storeRef(WITHDRAW_CODE)
+    .storeRef(walletCode)
+    .storeRef(withdrawCode)
     .endCell();
 }
 
+export async function run() {
+  // initialize ton rpc client on testnet
+  const endpoint = await getHttpEndpoint({ network: "testnet" });
+  const client = new TonClient({ endpoint });
 
-async function deployContract() {
-    const codeCell = Cell.fromBoc(Buffer.from(hex,"hex"))[0];
+  // open wallet v4 (notice the correct wallet version here)
+  const mnemonic = "";
+  const key = await mnemonicToWalletKey(mnemonic.split(" "));
+  const wallet = WalletContractV4.create({ publicKey: key.publicKey, workchain: 0 });
 
-    const ownerAddress = Address.parse("");
-    const receiverAddress = Address.parse("");
-    const metadataStr = "UTonicMinter";
-    const last_price_day = Math.floor(new Date().getTime() / 1000 / (24 * 60 * 60));
-    const dataCell = jettonMinterInitData(
-        last_price_day,
-        0,
-        0,
-        ownerAddress,
-        receiverAddress,
-        metadataStr
-    );   
+  // prepare minter's initial code and data cells for deployment
+  const minterCode = Cell.fromBoc(fs.readFileSync("build/minter.cell"))[0];
+  const walletCode = Cell.fromBoc(fs.readFileSync("build/wallet.cell"))[0];
+  const withdrawCode = Cell.fromBoc(fs.readFileSync("build/withdraw.cell"))[0];
+  const data = jettonMinterInitData(
+    Math.floor(new Date().getTime() / 1000 / 24 / 3600),
+    0,
+    0,
+    wallet.address,
+    wallet.address,
+    'UTonicMinter',
+    walletCode,
+    withdrawCode
+  )
+  const utonic = UTonic.createForDeploy(minterCode, data);
 
-    const stateInit: StateInit = {
-        code: codeCell,
-        data: dataCell,
-    };
+  // exit if contract is already deployed
+  console.log("contract address:", utonic.address.toString());
+  if (await client.isContractDeployed(utonic.address)) {
+    return console.log("Counter already deployed");
+  }
 
-    const stateInitBuilder = beginCell();
-    storeStateInit(stateInit)(stateInitBuilder);
-    const stateInitCell = stateInitBuilder.endCell();
+  // open wallet and read the current seqno of the wallet
+  const walletContract = client.open(wallet);
+  const walletSender = walletContract.sender(key.secretKey);
+  const seqno = await walletContract.getSeqno();
 
-    const address = contractAddress(0, {
-        code: codeCell,
-        data: dataCell,
-    });
+  // send the deploy transaction
+  const utonicContract = client.open(utonic);
+  await utonicContract.sendDeploy(walletSender);
 
-
-    let deployLink =
-        'https://app.tonkeeper.com/transfer/' +
-        address.toString({
-            testOnly: true,
-        }) +
-        "?" +
-        qs.stringify({
-            text: "Deploy contract by QR",
-            amount: toNano("0.1").toString(10),
-            init: stateInitCell.toBoc({idx: false}).toString("base64"),
-        });
-
-    
-
-    qrcode.generate(deployLink, {small: true }, (qr) => {
-        console.log(qr);
-    });
-
-    //https://testnet.tonscan.org/address/kQACwi82x8jaITAtniyEzho5_H1gamQ1xQ20As_1fboIfJ4h
-
-    let scanAddr = 
-        'https://testnet.tonscan.org/address/' +
-        address.toString({
-            testOnly: true,
-        })
-    
-    console.log(scanAddr);
-
+  // wait until confirmed
+  let currentSeqno = seqno;
+  while (currentSeqno == seqno) {
+    console.log("waiting for deploy transaction to confirm...");
+    await sleep(1500);
+    currentSeqno = await walletContract.getSeqno();
+  }
+  console.log("deploy transaction confirmed!");
 }
 
-deployContract()
-
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
