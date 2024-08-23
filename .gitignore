@@ -1,10 +1,10 @@
 node_modules
 .env
-package-lock.json
 
 #Hardhat files
-build/*.cell
+build/*.json
 .DS_Store
+yarn.lock
 
 *.swp
 *.swc
