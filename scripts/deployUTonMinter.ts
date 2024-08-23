@@ -59,7 +59,7 @@ function jettonMinterInitData(
     .storeUint(last_price_day, 32)
     .storeUint(last_price, 32)
     .storeUint(price_inc, 32)
-    .storeUint(0, 32)
+    .storeCoins(0)
     .storeAddress(owner)
     .storeAddress(ton_receiver)
     .storeRef(encodeOffChainContent(metadata))

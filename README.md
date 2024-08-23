@@ -32,5 +32,3 @@ To compile withdraw
 ```
 $ yarn compilewithdraw
 ```
-
-### deploy
