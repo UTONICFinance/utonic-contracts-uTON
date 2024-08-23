@@ -14,7 +14,17 @@
   );
 }
 
-() save_data(int total_supply, int last_price_day, int last_price, int price_inc, int debt_ton, slice admin_address, slice ton_receiver_address, cell content, cell jetton_wallet_code, cell withdraw_code) impure inline {
+() save_data(
+    int total_supply, 
+    int last_price_day, 
+    int last_price, 
+    int price_inc, 
+    int debt_ton, 
+    slice admin_address, 
+    slice ton_receiver_address, 
+    cell content, 
+    cell jetton_wallet_code, 
+    cell withdraw_code) impure inline {
   set_data(begin_cell()
       .store_coins(total_supply)
       .store_uint(last_price_day, 32)

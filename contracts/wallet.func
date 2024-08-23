@@ -2,6 +2,8 @@
 #include "libs/utils.func";
 #include "minter/op.func";
 #include "minter/params.func";
+#include "withdraw/op.func";
+#include "withdraw/params.func";
 #include "wallet/op.func";
 #include "wallet/params.func";
 #include "wallet/storage.func";
@@ -53,7 +55,7 @@
     throw_unless(709, msg_value > forward_ton_amount + fwd_count * fwd_fee + WALLET_SEND_FEE + WALLET_RECEIVE_FEE + WALLET_MIN_TON_STORAGE);
 
     send_raw_message(msg.end_cell(), 64); ;; revert on errors
-    save_data(balance, pendint_cnt, 
+    save_data(balance, withdraw_cnt, 
     tot_stake_ton_amount,
     tot_stake_uton_amount,
     last_stake_timestamp,
@@ -75,7 +77,7 @@
     int query_id = in_msg_body~load_uint(64);
     int uton_amount = in_msg_body~load_coins();
     int ton_amount = in_msg_body~load_coins();
-    int timestamp = in_msg_body~load_uint(32);
+    int timestamp = in_msg_body~load_uint(64);
     int price = in_msg_body~load_uint(32);
     tot_stake_ton_amount += ton_amount;
     tot_stake_uton_amount += uton_amount;

@@ -4,7 +4,7 @@
         ds~load_uint(64),
         ds~load_coins(), 
         ds~load_coins(), 
-        ds~load_uint(32), 
+        ds~load_uint(64), 
         ds~load_uint(32),
         ds~load_uint(1),
         ds~load_msg_addr(), 

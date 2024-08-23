@@ -5,7 +5,7 @@ const INTERNAL_TRANSFER = 0x178d4519;
 
 ;; other
 const STAKE1 = 60;
-const STAKE_SAVE = 61
+const STAKE_SAVE = 61;
 const WITHDRAW_NOTIFICATION = 62;
 
 const UPDATE_ADMIN = 70;

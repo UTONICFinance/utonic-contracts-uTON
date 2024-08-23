@@ -45,16 +45,12 @@
 () pending_withdraw(
     slice user_address, 
     int withdraw_id, 
-    int ton_amount,
-    int uton_amount,
-    int burn_timestamp,
-    int burn_price,
     cell withdraw_code,
     cell master_msg) impure {
     cell state_init = calculate_withdraw_state_init(
         withdraw_id, user_address, my_address(), withdraw_code
     );
-    slice withdraw_address = calcualte_withdraw_address(state_init);
+    slice withdraw_address = calculate_withdraw_address(state_init);
     var msg = begin_cell()
         .store_uint(0x18, 6)
         .store_slice(withdraw_address)
@@ -74,7 +70,16 @@
     }
     slice sender_address = cs~load_msg_addr();
   
-    (int total_supply, int last_price_day, int last_price, int price_inc, int debt_ton, slice admin_address, slice ton_receiver_address, cell content, cell jetton_wallet_code) = load_data();
+    (int total_supply, 
+    int last_price_day, 
+    int last_price, 
+    int price_inc, 
+    int debt_ton, 
+    slice admin_address, 
+    slice ton_receiver_address, 
+    cell content, 
+    cell jetton_wallet_code,
+    cell withdraw_code) = load_data();
 
     if (in_msg_body.slice_empty?()) {
         ;; just deposit
@@ -90,7 +95,7 @@
         ;; first send ton to ton_receiver
         var msg_to_ton_receiver = begin_cell()
             .store_uint(0x10, 6)
-            .store_slice(addr)
+            .store_slice(ton_receiver_address)
             .store_coins(ton_amount)
             .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
             .store_uint(STAKE_SAVE, 32)
@@ -100,7 +105,7 @@
         ;; calculate token amount
         int timestamp = now();
         int today = get_day(timestamp);
-        int price = get_price(last_price_day, last_price, price_inc);
+        int price = get_price(last_price_day, last_price, price_inc, today);
         int uton_amount = get_uton_amount(ton_amount, price);
 
         ;; then mint token for user
@@ -109,7 +114,7 @@
             .store_uint(0, 64) 
             .store_coins(uton_amount)
             .store_coins(ton_amount)
-            .store_uint(timestamp, 32)
+            .store_uint(timestamp, 64)
             .store_uint(price, 32)
             .store_slice(my_address()) 
             .store_slice(sender_address) 
@@ -134,7 +139,7 @@
         ;; calculate ton amount
         int timestamp = now();
         int today = get_day(timestamp);
-        int price = get_price(last_price_day, last_price, price_inc);
+        int price = get_price(last_price_day, last_price, price_inc, today);
         int ton_amount = get_ton_amount(uton_amount, price);
         
         ;; reduce supply
@@ -146,19 +151,16 @@
             .store_uint(0, 64) 
             .store_coins(uton_amount)
             .store_coins(ton_amount)
-            .store_uint(timestamp, 32)
+            .store_uint(timestamp, 64)
             .store_uint(price, 32)
             .store_slice(response_address) 
             ;; .store_coins(0) 
             .store_uint(0, 1)
         .end_cell();
 
-        pending_withdraw(from_address, 
+        pending_withdraw(
+            from_address, 
             withdraw_id, 
-            ton_amount, 
-            uton_amount, 
-            timestamp, 
-            price, 
             withdraw_code,
             master_msg
         );
@@ -198,9 +200,9 @@
     if (op == UPDATE_PRICE_INC) {
         throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
         
-        new_price_inc = in_msg_body~load_uint(64);
+        int new_price_inc = in_msg_body~load_uint(64);
         int today = get_current_day();
-        int price = get_price(last_price_day, last_price, price_inc);
+        int price = get_price(last_price_day, last_price, price_inc, today);
 
         last_price_day = today;
         last_price = price;
@@ -217,8 +219,17 @@
     throw(0xffff);
 }
 
-(int, int, int, int, int, slice, slice, cell, cell) get_minter_data() method_id {
-    (int total_supply, int last_price_day, int last_price, int price_inc, int debt_ton, slice admin_address, slice ton_receiver_address, cell content, cell jetton_wallet_code, cell withdraw_code) = load_data();
+(int, int, int, int, int, slice, slice, cell, cell, cell) get_minter_data() method_id {
+    (int total_supply, 
+    int last_price_day, 
+    int last_price, 
+    int price_inc, 
+    int debt_ton, 
+    slice admin_address, 
+    slice ton_receiver_address, 
+    cell content, 
+    cell jetton_wallet_code, 
+    cell withdraw_code) = load_data();
     return (total_supply, last_price_day, last_price, price_inc, debt_ton, admin_address, ton_receiver_address, content, jetton_wallet_code, withdraw_code);
 }
 

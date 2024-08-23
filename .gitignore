@@ -3,8 +3,7 @@ node_modules
 package-lock.json
 
 #Hardhat files
-cache
-artifacts
+build/*.cell
 .DS_Store
 
 *.swp

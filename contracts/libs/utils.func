@@ -1,3 +1,5 @@
+#include "params.func";
+
 (int) get_workchain(slice address) inline {
   (int wc, _) = parse_var_addr(address);
   return wc;
@@ -14,7 +16,7 @@ cell pack_jetton_wallet_data(int balance, int withdraw_cnt, int tot_stake_ton_am
     .store_uint(withdraw_cnt, 64)
     .store_coins(tot_stake_ton_amount)
     .store_coins(tot_stake_uton_amount)
-    .store_uint(last_stake_timestamp, 32)
+    .store_uint(last_stake_timestamp, 64)
     .store_uint(last_stake_price, 32)
     .store_coins(last_stake_ton_amount)
     .store_coins(last_stake_uton_amount)
@@ -57,7 +59,7 @@ cell pack_withdraw_data(int withdraw_id, int uton_amount, int ton_amount, int bu
     .store_uint(withdraw_id, 64)
     .store_coins(uton_amount)
     .store_coins(ton_amount)
-    .store_uint(burn_timestamp, 32)
+    .store_uint(burn_timestamp, 64)
     .store_uint(burn_price, 32)
     .store_uint(finished, 1)
     .store_slice(owner_address)
