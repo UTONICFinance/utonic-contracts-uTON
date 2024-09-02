@@ -17,7 +17,7 @@
     int query_id = in_msg_body~load_uint(64);
     int uton_amount = in_msg_body~load_coins();
     int ton_amount = in_msg_body~load_coins();
-    int burn_timestamp = in_msg_body~load_uint(32);
+    int burn_timestamp = in_msg_body~load_uint(64);
     int burn_price = in_msg_body~load_uint(32);
 
     slice response_address = in_msg_body~load_msg_addr();
@@ -58,7 +58,7 @@
     slice owner_address, slice jetton_master_address, cell withdraw_code) = load_data();
 
     throw_unless(703, now() >= burn_timestamp + PENDING_TIME);
-    throw_unless(704, finished != 0);
+    throw_unless(704, finished == 0);
     int query_id = in_msg_body~load_uint(64);
     slice response_address = in_msg_body~load_msg_addr();
 

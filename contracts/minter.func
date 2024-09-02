@@ -111,7 +111,7 @@
         ;; then mint token for user
         var master_msg = begin_cell()
             .store_uint(MINT, 32)
-            .store_uint(0, 64) 
+            .store_uint(query_id, 64) 
             .store_coins(uton_amount)
             .store_coins(ton_amount)
             .store_uint(timestamp, 64)
@@ -183,7 +183,7 @@
                 .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
                 .store_uint(EXCESSES, 32)
                 .store_uint(query_id, 64);
-            send_raw_message(msg.end_cell(), 1);
+            send_raw_message(msg.end_cell(), 64);
         }
         return ();
     }
