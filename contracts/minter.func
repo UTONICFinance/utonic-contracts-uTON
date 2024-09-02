@@ -176,14 +176,24 @@
         save_data(total_supply, last_price_day, last_price, price_inc, debt_ton - ton_amount, admin_address, ton_receiver_address, content, jetton_wallet_code, withdraw_code);
         slice response_address = in_msg_body~load_msg_addr();
         if (response_address.preload_uint(2) != 0) {
-            var msg = begin_cell()
+            var msg_withdraw_fund = begin_cell()
                 .store_uint(0x10, 6)
                 .store_slice(response_address)
                 .store_coins(ton_amount)
                 .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+                .store_uint(WITHDRAW_FUND, 32)
+                .store_uint(query_id, 64);
+            send_raw_message(msg_withdraw_fund.end_cell(), 1);
+
+            msg_value -= PROCESS_WITHDRAW_FEE;
+            var msg_excesses = begin_cell()
+                .store_uint(0x10, 6)
+                .store_slice(response_address)
+                .store_coins(msg_value)
+                .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
                 .store_uint(EXCESSES, 32)
                 .store_uint(query_id, 64);
-            send_raw_message(msg.end_cell(), 64);
+            send_raw_message(msg_excesses.end_cell(), 2);
         }
         return ();
     }
