@@ -218,6 +218,7 @@
         last_price = price;
         price_inc = new_price_inc;
         save_data(total_supply, last_price_day, last_price, price_inc, debt_ton, admin_address, ton_receiver_address, content, jetton_wallet_code, withdraw_code);
+        return ();
     }
 
     if (op == UPDATE_CONTENT) {
