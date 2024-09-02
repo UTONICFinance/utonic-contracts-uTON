@@ -15,5 +15,17 @@ export default class UTonic implements Contract {
     });
   }
 
+  async sendUpdatePriceInc(provider: ContractProvider, via: Sender, priceInc: number) {
+    const messageBody = beginCell()
+      .storeUint(71, 32) // op 
+      .storeUint(0, 64) // query id
+      .storeUint(priceInc, 64)
+      .endCell();
+    await provider.internal(via, {
+      value: "0.002", // send 0.002 TON for gas
+      body: messageBody
+    });
+  }
+
   constructor(readonly address: Address, readonly init?: { code: Cell, data: Cell }) {}
 }
