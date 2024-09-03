@@ -1,0 +1,265 @@
+#include "imports/stdlib.fc";
+#include "libs/utils.func";
+
+#include "minter/op.func";
+#include "minter/params.func";
+#include "proxy/storage.func";
+#include "proxy/errors.func";
+#include "proxy/params.func";
+#include "proxy/op.func";
+
+global slice owner_address;
+global slice jetton_master_address;
+global slice nominator_pool;
+global int enabled;
+global int withdraw_capacity;
+
+() load_global_data() inline {
+    (
+        owner_address,
+        jetton_master_address,
+        nominator_pool,
+        enabled,
+        withdraw_capacity
+    ) = load_data();
+}
+
+() save_global_data() impure inline {
+    save_data(
+        owner_address,
+        jetton_master_address,
+        nominator_pool,
+        enabled,
+        withdraw_capacity
+    );
+}
+
+() enable (slice sender_address, slice in_msg_body, int my_ton_balance, int msg_value) impure {
+    load_global_data();
+    int query_id = in_msg_body~load_uint(64);
+    
+    slice response_address = in_msg_body~load_msg_addr();
+    throw_unless(UNAUTHORIZED, equal_slices(jetton_master_address, sender_address));
+
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    int storage_fee = PROXY_MIN_TON_STORAGE - min(ton_balance_before_msg, PROXY_MIN_TON_STORAGE);
+    msg_value -= (storage_fee + PROXY_ENABLE_FEE);
+
+    if ((response_address.preload_uint(2) != 0) & (msg_value > 0)) {
+        var msg = begin_cell()
+            .store_uint(0x10, 6) ;; nobounce - int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool src:MsgAddress -> 011000
+            .store_slice(response_address)
+            .store_coins(msg_value)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_uint(EXCESSES, 32)
+            .store_uint(query_id, 64);
+        send_raw_message(msg.end_cell(), 2);
+    }
+
+    enabled = 1;
+    save_global_data();
+
+}
+
+() deposit (slice in_msg_body, int my_ton_balance, int msg_value) impure {
+    load_global_data();
+    throw_unless(NOT_ENABLED, enabled == 1);
+
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    int storage_fee = PROXY_MIN_TON_STORAGE - min(ton_balance_before_msg, PROXY_MIN_TON_STORAGE);
+    
+    int ton_amount = msg_value 
+        - storage_fee
+        - PROXY_DEPOSIT_FEE 
+        - NOMINATOR_DEPOSIT_FEE 
+        - PROCESS_PROXY_MINT_FEE 
+        - MINT_FEE;
+    throw_unless(INVALID_AMOUNT, ton_amount > 0);
+
+    int query_id = in_msg_body~load_uint(64);
+    slice response_address = in_msg_body~load_msg_addr();
+    ;; first send ton to nominator
+    var msg_to_nominator = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(nominator_pool)
+        .store_coins(ton_amount + NOMINATOR_DEPOSIT_FEE)
+        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1);
+    send_raw_message(msg_to_nominator.end_cell(), 1);
+    ;; then send notify msg to utonic minter(jetton master)
+    var notify_msg_body = begin_cell()
+        .store_uint(DEPOSIT_NOTIFICATION, 32)
+        .store_uint(query_id, 64)
+        .store_coins(ton_amount)
+        .store_slice(owner_address)
+        .store_slice(nominator_pool)
+        .store_slice(response_address)
+        .end_cell();
+
+    var notify_msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(jetton_master_address)
+        ;; todo determine msg value for burn notification
+        .store_coins(PROCESS_PROXY_MINT_FEE + MINT_FEE)
+        .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_ref(notify_msg_body);
+
+    send_raw_message(notify_msg.end_cell(), 1);
+}
+
+() withdraw_to_proxy (slice in_msg_body) impure {
+    
+    load_global_data();
+    throw_unless(NOT_ENABLED, enabled == 1);
+
+    int query_id = in_msg_body~load_uint(64);
+    int amount = in_msg_body~load_coins();
+    var withdraw_msg_body = begin_cell()
+        .store_uint(NOMINATOR_WITHDRAW_OP, 32)
+        .store_uint(query_id, 64)
+        .store_coins(amount)
+        .end_cell();
+
+    var withdraw_msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(nominator_pool)
+        .store_coins(0)
+        .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_ref(withdraw_msg_body);
+
+    send_raw_message(withdraw_msg.end_cell(), 64);
+}
+
+
+() add_withdraw_capacity (slice sender_address, slice in_msg_body, int my_ton_balance, int msg_value) impure {
+    load_global_data();
+    throw_unless(NOT_ENABLED, enabled == 1);
+
+    int query_id = in_msg_body~load_uint(64);
+    int amount = in_msg_body~load_coins();
+    slice response_address = in_msg_body~load_msg_addr();
+    throw_unless(UNAUTHORIZED, equal_slices(jetton_master_address, sender_address));
+
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    int storage_fee = PROXY_MIN_TON_STORAGE - min(ton_balance_before_msg, PROXY_MIN_TON_STORAGE);
+    msg_value -= (storage_fee + PROXY_ADD_WITHDRAW_CAPACITY_FEE);
+
+    if ((response_address.preload_uint(2) != 0) & (msg_value > 0)) {
+        var msg = begin_cell()
+            .store_uint(0x10, 6) ;; nobounce - int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool src:MsgAddress -> 011000
+            .store_slice(response_address)
+            .store_coins(msg_value)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_uint(EXCESSES, 32)
+            .store_uint(query_id, 64);
+        send_raw_message(msg.end_cell(), 2);
+    }
+
+    withdraw_capacity += amount;
+    save_global_data();
+
+}
+
+
+() withdraw_from_proxy (slice sender_address, slice in_msg_body, int my_ton_balance, int msg_value) impure {
+    
+    load_global_data();
+    throw_unless(NOT_ENABLED, enabled == 1);
+    throw_unless(UNAUTHORIZED, equal_slices(owner_address, sender_address));
+
+    int query_id = in_msg_body~load_uint(64);
+    int amount = in_msg_body~load_coins();
+    slice response_address = in_msg_body~load_msg_addr();
+
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    int storage_fee = PROXY_MIN_TON_STORAGE - min(ton_balance_before_msg, PROXY_MIN_TON_STORAGE);
+    
+    msg_value -= (storage_fee + PROXY_WITHDRAW_FEE);
+
+    int max_ton = my_ton_balance - PROXY_MIN_TON_STORAGE - PROXY_WITHDRAW_FEE;
+    int real_withdraw_amount = min(min(max_ton, amount), withdraw_capacity);
+    throw_unless(INVALID_AMOUNT, real_withdraw_amount > 0);
+
+    withdraw_capacity -= real_withdraw_amount;
+    save_global_data();
+
+    if (response_address.preload_uint(2) != 0) {
+        var msg_withdraw_fund = begin_cell()
+            .store_uint(0x10, 6) ;; nobounce - int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool src:MsgAddress -> 011000
+            .store_slice(response_address)
+            .store_coins(real_withdraw_amount)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_uint(WITHDRAW_FUND, 32)
+            .store_uint(query_id, 64);
+        send_raw_message(msg_withdraw_fund.end_cell(), 2);
+        
+        if (msg_value > 0) {
+            var msg_excesses = begin_cell()
+                .store_uint(0x10, 6) ;; nobounce - int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool src:MsgAddress -> 011000
+                .store_slice(response_address)
+                .store_coins(msg_value)
+                .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+                .store_uint(EXCESSES, 32)
+                .store_uint(query_id, 64);
+            send_raw_message(msg_excesses.end_cell(), 2);
+        }
+    }
+}
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_empty?()) { ;; ignore empty messages
+        return ();
+    }
+
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+    if (flags & 1) {
+        ;; ignore bounced msg
+        return ();
+    }
+    slice sender_address = cs~load_msg_addr();
+    cs~load_msg_addr();
+    cs~load_coins();
+    cs~skip_bits(1);
+    cs~load_coins();
+    int fwd_fee = cs~load_coins();
+
+    int op = in_msg_body~load_uint(32);
+
+    if (op == ENABLE) {
+        enable(sender_address, in_msg_body, my_balance, msg_value);
+        return ();
+    }
+
+    if (op == DEPOSIT) {
+        deposit(in_msg_body, my_balance, msg_value);
+        return ();
+    }
+
+    if (op == WITHDRAW_TO_PROXY) {
+        withdraw_to_proxy(in_msg_body);
+        return ();
+    }
+
+    if (op == ADD_WITHDRAW_CAPACITY) {
+        add_withdraw_capacity(sender_address, in_msg_body, my_balance, msg_value);
+        return ();
+    }
+
+    if (op == WITHDRAW_FROM_PROXY) {
+        withdraw_from_proxy(sender_address, in_msg_body, my_balance, msg_value);
+        return ();
+    }
+
+    throw(0xffff);
+}
+
+(slice, slice, slice, int, int) get_proxy_data() method_id {
+    load_global_data();
+    return (
+        owner_address, 
+        jetton_master_address, 
+        nominator_pool,
+        enabled,
+        withdraw_capacity
+    );
+}

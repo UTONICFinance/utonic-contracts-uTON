@@ -1,0 +1,13 @@
+;; standard
+const BURN_NOTIFICATION = 0x7bdd97de;
+const EXCESSES = 0xd53276db;
+const INTERNAL_TRANSFER = 0x178d4519;
+
+;; other
+const ENABLE = 80;
+const DEPOSIT = 81;
+const WITHDRAW_TO_PROXY = 82;
+const WITHDRAW_FROM_PROXY = 83;
+const ADD_WITHDRAW_CAPACITY = 84;
+
+const NOMINATOR_WITHDRAW_OP = 0x1000;

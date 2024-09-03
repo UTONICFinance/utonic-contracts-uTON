@@ -7,3 +7,4 @@ const BURN = 0x595f07bc;
 const BURN_NOTIFICATION = 0x7bdd97de;
 
 const MINT = 50;
+const PROXY_BURN = 51;

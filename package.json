@@ -4,7 +4,8 @@
   "scripts": {
       "compileminter": "npx func-js contracts/minter.func --boc build/minter.cell",
       "compilewallet": "npx func-js contracts/wallet.func --boc build/wallet.cell",
-      "compilewithdraw": "npx func-js contracts/withdraw.func --boc build/withdraw.cell"
+      "compilewithdraw": "npx func-js contracts/withdraw.func --boc build/withdraw.cell",
+      "compileproxy": "npx func-js contracts/proxy.func --boc build/proxy.cell"
   },
   "devDependencies": {
       "@ton/blueprint": "^0.22.0",
