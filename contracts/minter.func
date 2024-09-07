@@ -1,11 +1,14 @@
 #include "imports/stdlib.fc";
 #include "libs/utils.func";
+#include "common/errors.func";
+#include "common/params.func";
+#include "jetton/op.func";
 #include "wallet/op.func";
 #include "wallet/params.func";
 #include "withdraw/op.func";
 #include "withdraw/params.func";
-#include "proxy/op.func";
-#include "proxy/params.func";
+#include "large_proxy/op.func";
+#include "large_proxy/params.func";
 #include "minter/op.func";
 #include "minter/params.func";
 #include "minter/errors.func";
@@ -19,12 +22,13 @@ global int debt_ton;
 global slice admin_address;
 global slice ton_receiver_address;
 global slice uton_receiver_address;
+global cell ordinary_proxy_whitelist;
 global cell content;
 global cell jetton_wallet_code;
 global cell withdraw_code;
 global cell proxy_code;
 
-() load_global_data() inline {
+() load_global_data() impure inline {
     (total_supply, 
     last_price_day,
     last_price,
@@ -33,6 +37,7 @@ global cell proxy_code;
     admin_address,
     ton_receiver_address,
     uton_receiver_address,
+    ordinary_proxy_whitelist,
     content,
     jetton_wallet_code,
     withdraw_code,
@@ -49,6 +54,7 @@ global cell proxy_code;
         admin_address,
         ton_receiver_address,
         uton_receiver_address,
+        ordinary_proxy_whitelist,
         content,
         jetton_wallet_code,
         withdraw_code,
@@ -76,22 +82,12 @@ global cell proxy_code;
     return ton_amount * PRICE_BASE / (PRICE_BASE + price);
 }
 
-() mint_tokens(int query_id, slice user_address, slice response_address, int ton_amount) impure {
-    
-    ;; calculate token amount
-    int timestamp = now();
-    int today = get_day(timestamp);
-    int price = get_price(last_price_day, last_price, price_inc, today);
-    int uton_amount = get_uton_amount(ton_amount, price);
-
+() mint_tokens(int query_id, slice user_address, slice response_address, int uton_amount, int msg_value) impure {
     ;; then mint token for user
     var master_msg = begin_cell()
         .store_uint(MINT, 32)
         .store_uint(query_id, 64) 
         .store_coins(uton_amount)
-        .store_coins(ton_amount)
-        .store_uint(timestamp, 64)
-        .store_uint(price, 32)
         .store_slice(response_address) 
         ;; .store_coins(0) 
         .store_uint(0, 1)
@@ -102,13 +98,12 @@ global cell proxy_code;
     var msg = begin_cell()
         .store_uint(0x18, 6)
         .store_slice(to_wallet_address)
-        .store_coins(MINT_FEE)
+        .store_coins(msg_value)
         .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
         .store_ref(state_init)
         .store_ref(master_msg);
-    send_raw_message(msg.end_cell(), 1);
+    send_raw_message(msg.end_cell(), 0);
 }
-
 
 () stake(int query_id, slice user_address, int msg_value) impure {
 
@@ -130,14 +125,16 @@ global cell proxy_code;
     int today = get_day(timestamp);
     int price = get_price(last_price_day, last_price, price_inc, today);
     int uton_amount = get_uton_amount(ton_amount, price);
+    throw_unless(INVALID_UTON_AMOUNT, uton_amount > 0);
 
-    mint_tokens(query_id, user_address, user_address, ton_amount);
+    mint_tokens(query_id, user_address, user_address, uton_amount, MINT_FEE);
     total_supply += uton_amount;
     save_global_data();
 }
 
-() proxy_stake(int query_id, slice sender_address, int msg_value, slice in_msg_body) impure {
+() large_proxy_stake(int query_id, slice sender_address, int msg_value, slice in_msg_body) impure {
    
+    throw_unless(INSUFFICIENT_VALUE, msg_value > MINT_FEE + PROCESS_MINT_FEE);
     load_global_data();
 
     int ton_amount = in_msg_body~load_coins();
@@ -153,12 +150,24 @@ global cell proxy_code;
     int today = get_day(timestamp);
     int price = get_price(last_price_day, last_price, price_inc, today);
     int uton_amount = get_uton_amount(ton_amount, price);
+    throw_unless(INVALID_UTON_AMOUNT, uton_amount > 0);
 
     total_supply += uton_amount; 
     save_global_data();   
 
-    mint_tokens(query_id, user_address, response_address, ton_amount);
+    mint_tokens(query_id, user_address, response_address, uton_amount, msg_value - PROCESS_MINT_FEE);
 }
+
+() proxy_stake(int query_id, slice sender_address, int msg_value, slice in_msg_body) impure {
+    int proxy_type = in_msg_body~load_uint(PROXY_WHITE_LIST_KEY_LEN);
+    if (proxy_type == 0) {
+        ;; large proxy
+        large_proxy_stake(query_id,sender_address,msg_value,in_msg_body);
+    } else {
+        ;; todo: ordinary proxy stake
+    }
+}
+
 
 () _pending_withdraw(
     slice user_address, 
@@ -177,7 +186,7 @@ global cell proxy_code;
         .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
         .store_ref(state_init)
         .store_ref(master_msg);
-    send_raw_message(msg.end_cell(), 64);
+    send_raw_message(msg.end_cell(), 64); ;; pending-withdraw msg-64
 }
 
 () burn(int query_id, slice sender_address, int msg_value, slice in_msg_body) impure {
@@ -223,7 +232,7 @@ global cell proxy_code;
     );
 }
 
-() proxy_burn(int query_id, slice sender_address, int msg_value, slice in_msg_body) impure {
+() large_proxy_burn(int query_id, slice sender_address, int msg_value, slice in_msg_body) impure {
 
     load_global_data();
 
@@ -259,7 +268,7 @@ global cell proxy_code;
         .store_coins(0)
         .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
         .store_ref(msg_body);
-    send_raw_message(msg.end_cell(), 64);
+    send_raw_message(msg.end_cell(), 64); ;; large proxy burn msg-64
 }
 
 () withdraw(int query_id, slice sender_address, slice in_msg_body, int my_ton_balance, int msg_value) impure {
@@ -279,36 +288,41 @@ global cell proxy_code;
     debt_ton -= ton_amount;
     save_global_data();
 
+    ;; throw_unless(INVALID_RECIPIENT_ADDRESS, from_address.preload_uint(2) != 0);
+
+    var msg_withdraw_fund = begin_cell()
+        .store_uint(0x10, 6)
+        .store_slice(from_address)
+        .store_coins(ton_amount)
+        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_uint(WITHDRAW_FUND, 32)
+        .store_uint(query_id, 64);
+    send_raw_message(msg_withdraw_fund.end_cell(), 2);
+
     slice response_address = in_msg_body~load_msg_addr();
-    if (response_address.preload_uint(2) != 0) {
-        var msg_withdraw_fund = begin_cell()
-            .store_uint(0x10, 6)
-            .store_slice(response_address)
-            .store_coins(ton_amount)
-            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-            .store_uint(WITHDRAW_FUND, 32)
-            .store_uint(query_id, 64);
-        send_raw_message(msg_withdraw_fund.end_cell(), 1);
+    msg_value -= PROCESS_WITHDRAW_FEE;
+    if ((response_address.preload_uint(2) != 0) & (msg_value > 0)) {
         var msg_excesses = begin_cell()
             .store_uint(0x10, 6)
             .store_slice(response_address)
-            .store_coins(0)
+            .store_coins(msg_value)
             .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
             .store_uint(EXCESSES, 32)
             .store_uint(query_id, 64);
-        send_raw_message(msg_excesses.end_cell(), 64);
+        send_raw_message(msg_excesses.end_cell(), 2);
     }
 }
 
-() set_white_list(int query_id, slice sender_address, int msg_value, slice in_msg_body) impure {
+() set_large_proxy_whitelist(int query_id, slice sender_address, int msg_value, slice in_msg_body) impure {
 
     load_global_data();
+    throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
 
     slice response_address = in_msg_body~load_msg_addr();
     int proxy_num = in_msg_body~load_uint(32);
     int idx = 0;
 
-    throw_unless(INSUFFICIENT_VALUE, msg_value >= (PROXY_ENABLE_FEE + PROCESS_SET_WHITE_LIST_LOOP_FEE) * proxy_num + PROCESS_SET_WHITE_LIST_BASE_FEE);
+    throw_unless(INSUFFICIENT_VALUE, msg_value >= (LARGE_PROXY_ENABLE_FEE + PROCESS_SET_WHITE_LIST_LOOP_FEE) * proxy_num + PROCESS_SET_WHITE_LIST_BASE_FEE);
 
     var msg_body = begin_cell()
         .store_uint(ADD_WITHDRAW_CAPACITY, 32)
@@ -324,7 +338,7 @@ global cell proxy_code;
             .store_uint(0x18, 6)
             .store_slice(proxy_address)
             ;; todo determine msg value for burn notification
-            .store_coins(PROXY_ENABLE_FEE)
+            .store_coins(LARGE_PROXY_ENABLE_FEE)
             .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
             .store_ref(msg_body);
         send_raw_message(msg.end_cell(), 0);
@@ -332,6 +346,7 @@ global cell proxy_code;
     }
     save_global_data();
 }
+
 
 () recv_internal(int balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
     slice cs = in_msg_full.begin_parse();
@@ -370,8 +385,8 @@ global cell proxy_code;
         return ();
     }
 
-    if (op == PROXY_BURN_NOTIFICATION) {
-        proxy_burn(query_id, sender_address, msg_value, in_msg_body);
+    if (op == LARGE_PROXY_BURN_NOTIFICATION) {
+        large_proxy_burn(query_id, sender_address, msg_value, in_msg_body);
         return ();
     }
 
@@ -403,6 +418,7 @@ global cell proxy_code;
         last_price = price;
         price_inc = new_price_inc;
         save_global_data();
+        return ();
     }
 
     if (op == UPDATE_CONTENT) {
@@ -413,43 +429,44 @@ global cell proxy_code;
         return ();
     }
 
-    if (op == SET_WHITE_LIST) {
+    if (op == SET_LARGE_PROXY_WHITELIST) {
+        set_large_proxy_whitelist(query_id, sender_address, msg_value, in_msg_body);
+        return ();
+    }
+
+    if (op == UPDATE_CODE_AND_DATA) {
         throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
-        set_white_list(query_id, sender_address, msg_value, in_msg_body);
+        cell code = in_msg_body~load_ref();
+        cell data = in_msg_body~load_ref();
+        ifnot (code.cell_null?()) {
+            set_code(code);
+        }
+        ifnot (data.cell_null?()) {
+            set_data(data);
+        }
         return ();
     }
 
     throw(0xffff);
 }
 
-(int, int, int, int, int, slice, slice, slice, cell, cell, cell, cell) get_minter_data() method_id {
-    (int total_supply, 
-    int last_price_day, 
-    int last_price, 
-    int price_inc, 
-    int debt_ton, 
-    slice admin_address, 
-    slice ton_receiver_address, 
-    slice uton_receiver_address,
-    cell content, 
-    cell jetton_wallet_code, 
-    cell withdraw_code,
-    cell proxy_code) = load_data();
-    return (total_supply, last_price_day, last_price, price_inc, debt_ton, admin_address, ton_receiver_address, uton_receiver_address, content, jetton_wallet_code, withdraw_code, proxy_code);
+(int, int, int, int, int, slice, slice, slice, cell, cell, cell, cell, cell) get_minter_data() method_id {
+    load_global_data();
+    return (total_supply, last_price_day, last_price, price_inc, debt_ton, admin_address, ton_receiver_address, uton_receiver_address, ordinary_proxy_whitelist, content, jetton_wallet_code, withdraw_code, proxy_code);
 }
 
 slice get_proxy_address(slice owner_address, slice nominator_pool) method_id {
-    (_, _, _, _, _, _, _, _, _, _, _, cell proxy_code) = load_data();
+    (_, _, _, _, _, _, _, _, _, _, _, _, cell proxy_code) = load_data();
     return calculate_user_proxy_address(owner_address, my_address(), nominator_pool, proxy_code);
 }
 
 slice get_wallet_address(slice owner_address) method_id {
-    (_, _, _, _, _, _, _, _, _, cell jetton_wallet_code, _, _) = load_data();
+    (_, _, _, _, _, _, _, _, _, _, cell jetton_wallet_code, _, _) = load_data();
     return calculate_user_jetton_wallet_address(owner_address, my_address(), jetton_wallet_code);
 }
 
 slice get_withdraw_address(slice owner_address, int withdraw_id) method_id {
-    (_, _, _, _, _, _, _, _, _, _, cell withdraw_code, _) = load_data();
+    (_, _, _, _, _, _, _, _, _, _, _, cell withdraw_code, _) = load_data();
     return calculate_user_withdraw_address(owner_address, withdraw_id, my_address(), withdraw_code);
 }
 

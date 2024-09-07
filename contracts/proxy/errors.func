@@ -1,3 +1,0 @@
-const INVALID_AMOUNT = 75;
-const NOT_ENABLED = 76;
-const UNAUTHORIZED = 78;

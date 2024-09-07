@@ -1,0 +1,2 @@
+
+const PROXY_WHITE_LIST_KEY_LEN = 8;

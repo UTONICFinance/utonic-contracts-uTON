@@ -1,0 +1,37 @@
+#include "../common/params.func";
+
+(int, int, int, int, slice, slice, slice, slice) load_data() inline {
+  slice ds = get_data().begin_parse();
+  return (
+      ds~load_uint(32), ;; last_price_day
+      ds~load_uint(32), ;; last_price
+      ds~load_uint(32), ;; price_inc
+      ds~load_uint(PROXY_WHITE_LIST_KEY_LEN), ;; proxy_type
+      ds~load_msg_addr(), ;; jetton_master_address
+      ds~load_msg_addr(), ;; admin_address
+      ds~load_msg_addr(), ;; stton_wallet
+      ds~load_msg_addr() ;; stton_receiver_address
+  );
+}
+
+() save_data(
+    int last_price_day, 
+    int last_price, 
+    int price_inc, 
+    int proxy_type,
+    slice jetton_master_address,
+    slice admin_address, 
+    slice stton_wallet, 
+    slice stton_receiver_address) impure inline {
+  set_data(begin_cell()
+      .store_uint(last_price_day, 32)
+      .store_uint(last_price, 32)
+      .store_uint(price_inc, 32)
+      .store_uint(proxy_type, PROXY_WHITE_LIST_KEY_LEN)
+      .store_slice(jetton_master_address)
+      .store_slice(admin_address)
+      .store_slice(stton_wallet)
+      .store_slice(stton_receiver_address)
+      .end_cell()
+    );
+}

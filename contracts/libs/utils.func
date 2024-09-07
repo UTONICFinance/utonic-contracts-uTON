@@ -10,16 +10,10 @@
   throw_unless(error_code, wc == workchain);
 }
 
-cell pack_jetton_wallet_data(int balance, int withdraw_cnt, int tot_stake_ton_amount, int tot_stake_uton_amount, int last_stake_timestamp, int last_stake_price, int last_stake_ton_amount, int last_stake_uton_amount, slice owner_address, slice jetton_master_address, cell jetton_wallet_code) inline {
+cell pack_jetton_wallet_data(int balance, int withdraw_cnt, slice owner_address, slice jetton_master_address, cell jetton_wallet_code) inline {
   return  begin_cell()
     .store_coins(balance)
     .store_uint(withdraw_cnt, 64)
-    .store_coins(tot_stake_ton_amount)
-    .store_coins(tot_stake_uton_amount)
-    .store_uint(last_stake_timestamp, 64)
-    .store_uint(last_stake_price, 32)
-    .store_coins(last_stake_ton_amount)
-    .store_coins(last_stake_uton_amount)
     .store_slice(owner_address)
     .store_slice(jetton_master_address)
     .store_ref(jetton_wallet_code)
@@ -36,8 +30,7 @@ cell calculate_jetton_wallet_state_init(
     .store_dict(jetton_wallet_code)
     .store_dict(pack_jetton_wallet_data(
       0, 
-      0, 
-      0, 0, 0, 0, 0, 0,
+      0,
       owner_address, 
       jetton_master_address, 
       jetton_wallet_code

@@ -1,0 +1,172 @@
+#include "imports/stdlib.fc";
+#include "libs/utils.func";
+#include "common/errors.func";
+#include "jetton/op.func";
+#include "stton_proxy/op.func";
+#include "stton_proxy/errors.func";
+#include "stton_proxy/params.func";
+#include "stton_proxy/storage.func";
+#include "minter/op.func";
+#include "minter/params.func";
+#include "minter/errors.func";
+
+global int last_price_day;
+global int last_price;
+global int price_inc;
+global int proxy_type;
+global slice utonic_minter_address;
+global slice admin_address;
+global slice stton_wallet;
+global slice stton_receiver_address;
+
+() load_global_data() impure inline {
+    (
+        last_price_day,
+        last_price,
+        price_inc,
+        proxy_type,
+        utonic_minter_address,
+        admin_address,
+        stton_wallet,
+        stton_receiver_address
+    ) = load_data();
+}
+
+() save_global_data() impure inline {
+    save_data(
+        last_price_day,
+        last_price,
+        price_inc,
+        proxy_type,
+        utonic_minter_address,
+        admin_address,
+        stton_wallet,
+        stton_receiver_address
+    );
+}
+
+(int) get_day(int timestamp) inline {
+  return timestamp / ONE_DAY;
+}
+
+(int) get_current_day() inline {
+    return get_day(now());
+}
+
+(int) get_price(int last_price_day, int last_price, int price_inc, int current_day) inline {
+  return last_price + (current_day - last_price_day) * price_inc;
+}
+
+(int) get_uton_amount(int stton_amount, int price) inline {
+    return stton_amount * PRICE_BASE / (PRICE_BASE + price);
+}
+
+() proxy_stake(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
+   
+    load_global_data();
+
+    throw_unless(STPROXY_WALLET_NOT_SET, stton_wallet.preload_uint(2) != 0);
+
+    int stton_amount = in_msg_body~load_coins();
+    slice user_address = in_msg_body~load_msg_addr();
+    slice response_address = in_msg_body~load_msg_addr();
+    throw_unless(INVALID_AMOUNT, stton_amount > 0);
+
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    int storage_fee = STPROXY_MIN_TON_STORAGE - min(ton_balance_before_msg, STPROXY_MIN_TON_STORAGE);
+
+    throw_unless(
+        INSUFFICIENT_VALUE, 
+        msg_value > 
+        storage_fee
+        + STPROXY_TRANSFER_NOTIFICATION_FEE 
+        + STPROXY_TRANSFER_FEE
+        + PROCESS_ORDINARY_PROXY_MINT_FEE
+        + MINT_FEE
+        + fwd_fee * 2
+    );
+    
+    ;; todo send stton to stton receiver address
+
+    ;; calculate token amount
+    int timestamp = now();
+    int today = get_day(timestamp);
+    int price = get_price(last_price_day, last_price, price_inc, today);
+    int uton_amount = get_uton_amount(stton_amount, price);
+
+    ;; then send notify msg to utonic minter(jetton master)
+    var notify_msg_body = begin_cell()
+        .store_uint(DEPOSIT_NOTIFICATION, 32)
+        .store_uint(query_id, 64)
+        .store_uint(proxy_type, PROXY_WHITE_LIST_KEY_LEN)
+        .store_coins(uton_amount)
+        .store_slice(user_address)
+        .store_slice(response_address)
+        .end_cell();
+
+    var notify_msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(utonic_minter_address)
+        ;; todo determine rest of msg value
+        .store_coins(PROCESS_ORDINARY_PROXY_MINT_FEE + MINT_FEE)
+        .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_ref(notify_msg_body);
+
+    send_raw_message(notify_msg.end_cell(), 1); 
+
+}
+
+() recv_internal(int balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+
+    if (flags & 1) { 
+        return ();
+    }
+    slice sender_address = cs~load_msg_addr();
+    cs~load_msg_addr();
+    cs~load_coins();
+    cs~skip_bits(1);
+    cs~load_coins();
+    int fwd_fee = cs~load_coins();
+
+    if (in_msg_body.slice_empty?()) {
+        ;; just deposit
+        return ();
+    }
+
+    int op = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+
+    if (op == TRANSFER_NOTIFICATION) {
+        proxy_stake(query_id,in_msg_body,sender_address,balance,fwd_fee,msg_value);
+        return ();
+    }
+
+    ;; admin operate
+    if (op == STPROXY_UPDATE_ADMIN) {
+        load_global_data();
+        throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        slice new_admin_address = in_msg_body~load_msg_addr();
+        admin_address = new_admin_address;
+        save_global_data();
+        return ();
+    }
+
+    if (op == STPROXY_UPDATE_PRICE_INC) {
+        load_global_data();
+        throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        
+        int new_price_inc = in_msg_body~load_uint(64);
+        int today = get_current_day();
+        int price = get_price(last_price_day, last_price, price_inc, today);
+
+        last_price_day = today;
+        last_price = price;
+        price_inc = new_price_inc;
+        save_global_data();
+        return ();
+    }
+
+    throw(0xffff);
+}
