@@ -1,7 +1,7 @@
 
 
 ;; other
-const ENABLE = 80;
+const ENABLE_SWITCH = 80;
 const DEPOSIT = 81;
 const WITHDRAW_TO_PROXY = 82;
 const WITHDRAW_FROM_PROXY = 83;

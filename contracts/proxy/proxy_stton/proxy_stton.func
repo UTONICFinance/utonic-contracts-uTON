@@ -1,14 +1,15 @@
-#include "imports/stdlib.fc";
-#include "libs/utils.func";
-#include "common/errors.func";
-#include "jetton/op.func";
-#include "stton_proxy/op.func";
-#include "stton_proxy/errors.func";
-#include "stton_proxy/params.func";
-#include "stton_proxy/storage.func";
-#include "minter/op.func";
-#include "minter/params.func";
-#include "minter/errors.func";
+#include "../../imports/stdlib.fc";
+#include "../../libs/utils.func";
+#include "../../common/errors.func";
+#include "../../jetton/op.func";
+#include "../../minter/op.func";
+#include "../../minter/params.func";
+#include "../../minter/errors.func";
+
+#include "op.func";
+#include "errors.func";
+#include "params.func";
+#include "storage.func";
 
 global int last_price_day;
 global int last_price;
@@ -61,11 +62,15 @@ global slice stton_receiver_address;
     return stton_amount * PRICE_BASE / (PRICE_BASE + price);
 }
 
+() _send_stton(int query_id, int amount, slice response_address, int send_all_fee) impure {
+    ;; todo sendmessage to stton wallet of proxy-stton
+}
+
 () proxy_stake(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
    
     load_global_data();
 
-    throw_unless(STPROXY_WALLET_NOT_SET, stton_wallet.preload_uint(2) != 0);
+    throw_unless(PROXYST_WALLET_NOT_SET, stton_wallet.preload_uint(2) != 0);
 
     int stton_amount = in_msg_body~load_coins();
     slice user_address = in_msg_body~load_msg_addr();
@@ -73,20 +78,25 @@ global slice stton_receiver_address;
     throw_unless(INVALID_AMOUNT, stton_amount > 0);
 
     int ton_balance_before_msg = my_ton_balance - msg_value;
-    int storage_fee = STPROXY_MIN_TON_STORAGE - min(ton_balance_before_msg, STPROXY_MIN_TON_STORAGE);
+    int storage_fee = PROXYST_MIN_TON_STORAGE - min(ton_balance_before_msg, PROXYST_MIN_TON_STORAGE);
 
     throw_unless(
         INSUFFICIENT_VALUE, 
         msg_value > 
         storage_fee
-        + STPROXY_TRANSFER_NOTIFICATION_FEE 
-        + STPROXY_TRANSFER_FEE
+        + PROXYST_TRANSFER_NOTIFICATION_FEE 
+        + PROXYST_TRANSFER_FEE
         + PROCESS_ORDINARY_PROXY_MINT_FEE
         + MINT_FEE
         + fwd_fee * 2
     );
-    
-    ;; todo send stton to stton receiver address
+    _send_stton(query_id, stton_amount, response_address, false);
+
+    int remain_msg_value = msg_value 
+        - PROXYST_TRANSFER_NOTIFICATION_FEE 
+        - PROXYST_TRANSFER_FEE
+        - storage_fee
+        - fwd_fee - fwd_fee;
 
     ;; calculate token amount
     int timestamp = now();
@@ -107,8 +117,8 @@ global slice stton_receiver_address;
     var notify_msg = begin_cell()
         .store_uint(0x18, 6)
         .store_slice(utonic_minter_address)
-        ;; todo determine rest of msg value
-        .store_coins(PROCESS_ORDINARY_PROXY_MINT_FEE + MINT_FEE)
+        ;; todo determine msg value for burn notification
+        .store_coins(remain_msg_value)
         .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
         .store_ref(notify_msg_body);
 
@@ -144,7 +154,7 @@ global slice stton_receiver_address;
     }
 
     ;; admin operate
-    if (op == STPROXY_UPDATE_ADMIN) {
+    if (op == PROXYST_UPDATE_ADMIN) {
         load_global_data();
         throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
         slice new_admin_address = in_msg_body~load_msg_addr();
@@ -153,7 +163,7 @@ global slice stton_receiver_address;
         return ();
     }
 
-    if (op == STPROXY_UPDATE_PRICE_INC) {
+    if (op == PROXYST_UPDATE_PRICE_INC) {
         load_global_data();
         throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
         
@@ -168,5 +178,48 @@ global slice stton_receiver_address;
         return ();
     }
 
+    if (op == PROXYST_UPDATE_PROXYST_WALLET) {
+        load_global_data();
+        throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        
+        slice wallet = in_msg_body~load_msg_addr();
+        stton_wallet = wallet;
+        save_global_data();
+        return ();
+    }
+
+    if (op == PROXYST_UPDATE_STTON_RECEIVER) {
+        load_global_data();
+        throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        
+        slice receiver = in_msg_body~load_msg_addr();
+        stton_receiver_address = receiver;
+        save_global_data();
+        return ();
+    }
+
+    if (op == PROXYST_SEND_STTON) {
+        load_global_data();
+        throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        int amount = in_msg_body~load_coins();
+        slice response_address = in_msg_body~load_msg_addr();
+        _send_stton(query_id, amount, response_address, true);
+        return ();
+    }
+
     throw(0xffff);
+}
+
+(int, int, int, int, slice, slice, slice, slice) get_proxy_stton_data() method_id {
+    load_global_data();
+    return (
+        last_price_day,
+        last_price,
+        price_inc,
+        proxy_type,
+        utonic_minter_address,
+        admin_address,
+        stton_wallet,
+        stton_receiver_address
+    );
 }

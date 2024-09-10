@@ -1,4 +1,4 @@
-#include "params.func";
+#include "../common/params.func";
 
 (int) get_workchain(slice address) inline {
   (int wc, _) = parse_var_addr(address);
@@ -90,42 +90,4 @@ slice calculate_withdraw_address(cell state_init) inline {
 
 slice calculate_user_withdraw_address(slice owner_address, int withdraw_id, slice jetton_master_address, cell withdraw_code) inline {
   return calculate_withdraw_address(calculate_withdraw_state_init(withdraw_id, owner_address, jetton_master_address, withdraw_code));
-}
-
-cell pack_proxy_data(slice owner_address, slice jetton_master_address, slice nominator_pool, int enable, int withdraw_capacity) inline {
-  return  begin_cell()
-    .store_slice(owner_address)
-    .store_slice(jetton_master_address)
-    .store_slice(nominator_pool)
-    .store_uint(enable, 1)
-    .store_coins(withdraw_capacity)
-  ;; todo
-  .end_cell();
-}
-
-cell calculate_proxy_state_init(slice owner_address, slice jetton_master_address, slice nominator_pool, cell proxy_code) inline {
-  return begin_cell()
-    .store_uint(0, 2)
-    .store_dict(proxy_code)
-    .store_dict(pack_proxy_data(
-      owner_address, 
-      jetton_master_address,
-      nominator_pool,
-      0,
-      0
-    ))
-    .store_uint(0, 1)
-  .end_cell();
-}
-
-slice calculate_proxy_address(cell state_init) inline {
-  return begin_cell()
-    .store_uint(4, 3)
-    .store_int(WORKCHAIN, 8)
-    .store_uint(cell_hash(state_init), 256)
-  .end_cell().begin_parse();
-}
-
-slice calculate_user_proxy_address(slice owner_address, slice jetton_master_address, slice nominator_pool, cell proxy_code) inline {
-  return calculate_proxy_address(calculate_proxy_state_init(owner_address, jetton_master_address, nominator_pool, proxy_code));
 }

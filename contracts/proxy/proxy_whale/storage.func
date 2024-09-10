@@ -1,4 +1,4 @@
-#include "../libs/utils.func";
+#include "../../libs/utils.func";
 
 (slice, slice, slice, int, int) load_data() inline {
     slice ds = get_data().begin_parse();
@@ -18,7 +18,7 @@
     int enabled, 
     int withdraw_capacity
 ) impure inline {
-    set_data(pack_proxy_data(
+    set_data(pack_proxy_whale_data(
         owner_address,
         jetton_master_address,
         nominator_pool,

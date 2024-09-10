@@ -1,0 +1,39 @@
+#include "../../common/params.func";
+
+cell pack_proxy_whale_data(slice owner_address, slice jetton_master_address, slice nominator_pool, int enable, int withdraw_capacity) inline {
+  return  begin_cell()
+    .store_slice(owner_address)
+    .store_slice(jetton_master_address)
+    .store_slice(nominator_pool)
+    .store_uint(enable, 1)
+    .store_coins(withdraw_capacity)
+  ;; todo
+  .end_cell();
+}
+
+cell calculate_proxy_whale_state_init(slice owner_address, slice jetton_master_address, slice nominator_pool, cell proxy_code) inline {
+  return begin_cell()
+    .store_uint(0, 2)
+    .store_dict(proxy_code)
+    .store_dict(pack_proxy_whale_data(
+      owner_address, 
+      jetton_master_address,
+      nominator_pool,
+      0,
+      0
+    ))
+    .store_uint(0, 1)
+  .end_cell();
+}
+
+slice calculate_proxy_whale_address(cell state_init) inline {
+  return begin_cell()
+    .store_uint(4, 3)
+    .store_int(WORKCHAIN, 8)
+    .store_uint(cell_hash(state_init), 256)
+  .end_cell().begin_parse();
+}
+
+slice calculate_user_proxy_whale_address(slice owner_address, slice jetton_master_address, slice nominator_pool, cell proxy_code) inline {
+  return calculate_proxy_whale_address(calculate_proxy_whale_state_init(owner_address, jetton_master_address, nominator_pool, proxy_code));
+}

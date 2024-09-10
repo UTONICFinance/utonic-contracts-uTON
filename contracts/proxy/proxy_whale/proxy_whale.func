@@ -1,13 +1,15 @@
-#include "imports/stdlib.fc";
-#include "libs/utils.func";
-#include "common/errors.func";
-#include "common/params.func";
-#include "jetton/op.func";
-#include "minter/op.func";
-#include "minter/params.func";
-#include "large_proxy/storage.func";
-#include "large_proxy/params.func";
-#include "large_proxy/op.func";
+#include "../../imports/stdlib.fc";
+#include "../../libs/utils.func";
+#include "../../common/errors.func";
+#include "../../common/params.func";
+#include "../../jetton/op.func";
+#include "../../minter/op.func";
+#include "../../minter/params.func";
+
+#include "utils.func";
+#include "storage.func";
+#include "params.func";
+#include "op.func";
 
 global slice owner_address;
 global slice jetton_master_address;
@@ -15,7 +17,7 @@ global slice nominator_pool;
 global int enabled;
 global int withdraw_capacity;
 
-() load_global_data() inline {
+() load_global_data() impure inline {
     (
         owner_address,
         jetton_master_address,
@@ -35,16 +37,17 @@ global int withdraw_capacity;
     );
 }
 
-() enable (slice sender_address, slice in_msg_body, int my_ton_balance, int msg_value) impure {
+() enable_switch (slice sender_address, slice in_msg_body, int my_ton_balance, int msg_value) impure {
     load_global_data();
+    throw_unless(UNAUTHORIZED, equal_slices(jetton_master_address, sender_address));
     int query_id = in_msg_body~load_uint(64);
     
+    int enabled = in_msg_body~load_uint(1);
     slice response_address = in_msg_body~load_msg_addr();
-    throw_unless(UNAUTHORIZED, equal_slices(jetton_master_address, sender_address));
 
     int ton_balance_before_msg = my_ton_balance - msg_value;
-    int storage_fee = LARGE_PROXY_MIN_TON_STORAGE - min(ton_balance_before_msg, LARGE_PROXY_MIN_TON_STORAGE);
-    msg_value -= (storage_fee + LARGE_PROXY_ENABLE_FEE);
+    int storage_fee = PROXY_WHALE_MIN_TON_STORAGE - min(ton_balance_before_msg, PROXY_WHALE_MIN_TON_STORAGE);
+    msg_value -= (storage_fee + PROXY_WHALE_ENABLE_SWITCH_FEE);
 
     if ((response_address.preload_uint(2) != 0) & (msg_value > 0)) {
         var msg = begin_cell()
@@ -57,7 +60,6 @@ global int withdraw_capacity;
         send_raw_message(msg.end_cell(), 2);
     }
 
-    enabled = 1;
     save_global_data();
 
 }
@@ -67,14 +69,14 @@ global int withdraw_capacity;
     throw_unless(NOT_ENABLED, enabled == 1);
 
     int ton_balance_before_msg = my_ton_balance - msg_value;
-    int storage_fee = LARGE_PROXY_MIN_TON_STORAGE - min(ton_balance_before_msg, LARGE_PROXY_MIN_TON_STORAGE);
+    int storage_fee = PROXY_WHALE_MIN_TON_STORAGE - min(ton_balance_before_msg, PROXY_WHALE_MIN_TON_STORAGE);
     
     int ton_amount = msg_value 
         - storage_fee
-        - LARGE_PROXY_DEPOSIT_FEE 
+        - PROXY_WHALE_DEPOSIT_FEE 
         - NOMINATOR_DEPOSIT_FEE 
         - fwd_fee
-        - PROCESS_LARGE_PROXY_MINT_FEE
+        - PROCESS_PROXY_WHALE_MINT_FEE
         - fwd_fee
         - MINT_FEE;
     throw_unless(INVALID_AMOUNT, ton_amount > 0);
@@ -105,7 +107,7 @@ global int withdraw_capacity;
         .store_uint(0x18, 6)
         .store_slice(jetton_master_address)
         ;; todo determine msg value for burn notification
-        .store_coins(PROCESS_LARGE_PROXY_MINT_FEE + MINT_FEE)
+        .store_coins(PROCESS_PROXY_WHALE_MINT_FEE + MINT_FEE)
         .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
         .store_ref(notify_msg_body);
 
@@ -115,7 +117,7 @@ global int withdraw_capacity;
 () withdraw_to_proxy (slice in_msg_body) impure {
     
     load_global_data();
-    throw_unless(NOT_ENABLED, enabled == 1);
+    ;; throw_unless(NOT_ENABLED, enabled == 1);
 
     int query_id = in_msg_body~load_uint(64);
     int amount = in_msg_body~load_coins();
@@ -139,7 +141,7 @@ global int withdraw_capacity;
 
 () add_withdraw_capacity (slice sender_address, slice in_msg_body, int my_ton_balance, int msg_value) impure {
     load_global_data();
-    throw_unless(NOT_ENABLED, enabled == 1);
+    ;; throw_unless(NOT_ENABLED, enabled == 1);
 
     int query_id = in_msg_body~load_uint(64);
     int amount = in_msg_body~load_coins();
@@ -147,8 +149,8 @@ global int withdraw_capacity;
     throw_unless(UNAUTHORIZED, equal_slices(jetton_master_address, sender_address));
 
     int ton_balance_before_msg = my_ton_balance - msg_value;
-    int storage_fee = LARGE_PROXY_MIN_TON_STORAGE - min(ton_balance_before_msg, LARGE_PROXY_MIN_TON_STORAGE);
-    msg_value -= (storage_fee + LARGE_PROXY_ADD_WITHDRAW_CAPACITY_FEE);
+    int storage_fee = PROXY_WHALE_MIN_TON_STORAGE - min(ton_balance_before_msg, PROXY_WHALE_MIN_TON_STORAGE);
+    msg_value -= (storage_fee + PROXY_WHALE_ADD_WITHDRAW_CAPACITY_FEE);
 
     if ((response_address.preload_uint(2) != 0) & (msg_value > 0)) {
         var msg = begin_cell()
@@ -170,7 +172,7 @@ global int withdraw_capacity;
 () withdraw_from_proxy (slice sender_address, slice in_msg_body, int my_ton_balance, int msg_value) impure {
     
     load_global_data();
-    throw_unless(NOT_ENABLED, enabled == 1);
+    ;; throw_unless(NOT_ENABLED, enabled == 1);
     throw_unless(UNAUTHORIZED, equal_slices(owner_address, sender_address));
 
     int query_id = in_msg_body~load_uint(64);
@@ -178,11 +180,11 @@ global int withdraw_capacity;
     slice response_address = in_msg_body~load_msg_addr();
 
     int ton_balance_before_msg = my_ton_balance - msg_value;
-    int storage_fee = LARGE_PROXY_MIN_TON_STORAGE - min(ton_balance_before_msg, LARGE_PROXY_MIN_TON_STORAGE);
+    int storage_fee = PROXY_WHALE_MIN_TON_STORAGE - min(ton_balance_before_msg, PROXY_WHALE_MIN_TON_STORAGE);
     
-    msg_value -= (storage_fee + LARGE_PROXY_WITHDRAW_FEE);
+    msg_value -= (storage_fee + PROXY_WHALE_WITHDRAW_FEE);
 
-    int max_ton = my_ton_balance - LARGE_PROXY_MIN_TON_STORAGE - LARGE_PROXY_WITHDRAW_FEE;
+    int max_ton = my_ton_balance - PROXY_WHALE_MIN_TON_STORAGE - PROXY_WHALE_WITHDRAW_FEE;
     int real_withdraw_amount = min(min(max_ton, amount), withdraw_capacity);
     throw_unless(INVALID_AMOUNT, real_withdraw_amount > 0);
 
@@ -232,8 +234,8 @@ global int withdraw_capacity;
 
     int op = in_msg_body~load_uint(32);
 
-    if (op == ENABLE) {
-        enable(sender_address, in_msg_body, my_balance, msg_value);
+    if (op == ENABLE_SWITCH) {
+        enable_switch(sender_address, in_msg_body, my_balance, msg_value);
         return ();
     }
 

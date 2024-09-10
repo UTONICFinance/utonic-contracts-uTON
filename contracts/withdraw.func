@@ -19,7 +19,7 @@ global slice jetton_master_address;
 global cell withdraw_code;
 
 
-() load_global_data() inline {
+() load_global_data() impure inline {
     (
         withdraw_id,
         uton_amount, 

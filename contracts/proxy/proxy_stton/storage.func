@@ -1,4 +1,4 @@
-#include "../common/params.func";
+#include "../../common/params.func";
 
 (int, int, int, int, slice, slice, slice, slice) load_data() inline {
   slice ds = get_data().begin_parse();

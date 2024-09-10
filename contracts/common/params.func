@@ -1,2 +1,6 @@
 
 const PROXY_WHITE_LIST_KEY_LEN = 8;
+
+const WORKCHAIN = 0;
+const PRICE_BASE = 1000000;
+const ONE_DAY = 24 * 60 * 60;
