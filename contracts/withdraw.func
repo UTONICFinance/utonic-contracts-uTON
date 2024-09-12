@@ -16,7 +16,6 @@ global int burn_price;
 global int finished;
 global slice owner_address;
 global slice jetton_master_address;
-global cell withdraw_code;
 
 
 () load_global_data() impure inline {
@@ -28,8 +27,7 @@ global cell withdraw_code;
         burn_price,
         finished,
         owner_address, 
-        jetton_master_address, 
-        withdraw_code
+        jetton_master_address
     ) = load_data();
 }
 
@@ -42,8 +40,7 @@ global cell withdraw_code;
         burn_price,
         finished,
         owner_address, 
-        jetton_master_address, 
-        withdraw_code
+        jetton_master_address
     );
 }
 
@@ -53,7 +50,7 @@ global cell withdraw_code;
     uton_amount = in_msg_body~load_coins();
     ton_amount = in_msg_body~load_coins();
     burn_timestamp = in_msg_body~load_uint(64);
-    burn_price = in_msg_body~load_uint(32);
+    burn_price = in_msg_body~load_uint(64);
 
     slice response_address = in_msg_body~load_msg_addr();
     throw_unless(707, equal_slices(jetton_master_address, sender_address));
@@ -72,7 +69,6 @@ global cell withdraw_code;
             .store_uint(query_id, 64);
         send_raw_message(msg.end_cell(), 2);
     }
-
     save_global_data();
 }
 
@@ -82,6 +78,7 @@ global cell withdraw_code;
     throw_unless(703, now() >= burn_timestamp + PENDING_TIME);
     throw_unless(704, finished == 0);
     int query_id = in_msg_body~load_uint(64);
+    slice recipient_address = in_msg_body~load_msg_addr();
     slice response_address = in_msg_body~load_msg_addr();
 
     throw_unless(705, equal_slices(owner_address, sender_address));
@@ -100,6 +97,7 @@ global cell withdraw_code;
         .store_uint(query_id, 64)
         .store_coins(ton_amount)
         .store_slice(owner_address)
+        .store_slice(recipient_address)
         .store_uint(withdraw_id, 64)
         .store_slice(response_address)
         .end_cell();
@@ -157,7 +155,7 @@ global cell withdraw_code;
     throw(0xffff);
 }
 
-(int, int, int, int, int, int, slice, slice, cell) get_withdraw_data() method_id {
+(int, int, int, int, int, int, slice, slice) get_withdraw_data() method_id {
     
     load_global_data();
     return (
@@ -168,7 +166,6 @@ global cell withdraw_code;
         burn_price,
         finished,
         owner_address, 
-        jetton_master_address, 
-        withdraw_code
+        jetton_master_address
     );
 }

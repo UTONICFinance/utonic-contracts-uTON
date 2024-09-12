@@ -3,14 +3,16 @@
   slice ds = get_data().begin_parse();
   int lc_total_supply = ds~load_coins(); ;; total_supply
   int lc_last_price_day = ds~load_uint(32); ;; last_price_day
-  int lc_last_price = ds~load_uint(32); ;; last_price
-  int lc_price_inc = ds~load_uint(32); ;; price_inc
+  int lc_last_price = ds~load_uint(64); ;; last_price
+  int lc_price_inc = ds~load_uint(64); ;; price_inc
   int lc_debt_ton = ds~load_coins(); ;; debt_ton
-
-  slice lc_admin_address = ds~load_msg_addr(); ;; admin_address
-  slice lc_ton_receiver_address = ds~load_msg_addr(); ;; TON receiver address
-  slice lc_uton_receiver_address = ds~load_msg_addr(); ;; proxy UTON receiver address
-  cell lc_proxy_ordinary_whitelist = ds~load_dict(); ;; load dict of ordinary user proxy whitelist
+  
+  slice address_cell = ds~load_ref().begin_parse();
+  slice lc_admin_address = address_cell~load_msg_addr(); ;; admin_address
+  slice lc_ton_receiver_address = address_cell~load_msg_addr(); ;; TON receiver address
+  slice lc_uton_receiver_address = address_cell~load_msg_addr(); ;; proxy UTON receiver address
+  cell lc_proxy_ordinary_whitelist = address_cell~load_dict(); ;; load dict of ordinary user proxy whitelist
+  
   cell lc_content = ds~load_ref(); ;; content
   slice code_cell = ds~load_ref().begin_parse();
   cell lc_jetton_wallet_code = code_cell~load_ref();
@@ -46,22 +48,27 @@
     cell lc_content, 
     cell lc_jetton_wallet_code, 
     cell lc_withdraw_code,
-    cell lc_proxy_code) impure inline {
+    cell lc_proxy_whale_code) impure inline {
+
   cell code_cell = begin_cell()
       .store_ref(lc_jetton_wallet_code)
       .store_ref(lc_withdraw_code)
-      .store_ref(lc_proxy_code)
+      .store_ref(lc_proxy_whale_code)
       .end_cell();
-  set_data(begin_cell()
-      .store_coins(lc_total_supply)
-      .store_uint(lc_last_price_day, 32)
-      .store_uint(lc_last_price, 32)
-      .store_uint(lc_price_inc, 32)
-      .store_coins(lc_debt_ton)
+  cell address_cell = begin_cell()
       .store_slice(lc_admin_address)
       .store_slice(lc_ton_receiver_address)
       .store_slice(lc_uton_receiver_address)
       .store_dict(lc_proxy_ordinary_whitelist)
+      .end_cell();
+
+  set_data(begin_cell()
+      .store_coins(lc_total_supply)
+      .store_uint(lc_last_price_day, 32)
+      .store_uint(lc_last_price, 64)
+      .store_uint(lc_price_inc, 64)
+      .store_coins(lc_debt_ton)
+      .store_ref(address_cell)
       .store_ref(lc_content)
       .store_ref(code_cell)
       .end_cell()

@@ -51,17 +51,16 @@ slice calculate_user_jetton_wallet_address(slice owner_address, slice jetton_mas
   return calculate_jetton_wallet_address(calculate_jetton_wallet_state_init(owner_address, jetton_master_address, jetton_wallet_code));
 }
 
-cell pack_withdraw_data(int withdraw_id, int uton_amount, int ton_amount, int burn_timestamp, int burn_price, int finished, slice owner_address, slice jetton_master_address, cell withdraw_code) inline {
+cell pack_withdraw_data(int withdraw_id, int uton_amount, int ton_amount, int burn_timestamp, int burn_price, int finished, slice owner_address, slice jetton_master_address) inline {
   return  begin_cell()
     .store_uint(withdraw_id, 64)
     .store_coins(uton_amount)
     .store_coins(ton_amount)
     .store_uint(burn_timestamp, 64)
-    .store_uint(burn_price, 32)
+    .store_uint(burn_price, 64)
     .store_uint(finished, 1)
     .store_slice(owner_address)
     .store_slice(jetton_master_address)
-    .store_ref(withdraw_code)
   ;; todo
   .end_cell();
 }
@@ -73,8 +72,7 @@ cell calculate_withdraw_state_init(int withdraw_id, slice owner_address, slice j
     .store_dict(pack_withdraw_data(
       withdraw_id, 0, 0, 0, 0, 0,
       owner_address, 
-      jetton_master_address, 
-      withdraw_code
+      jetton_master_address
     ))
     .store_uint(0, 1)
   .end_cell();

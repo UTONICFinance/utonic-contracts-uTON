@@ -166,7 +166,7 @@ global cell jetton_wallet_code;
     int query_id = in_msg_body~load_uint(64);
     int uton_amount = in_msg_body~load_coins();
     slice response_address = in_msg_body~load_msg_addr();
-
+    int withdraw_id = withdraw_cnt;
     withdraw_cnt += 1;
     balance -= uton_amount;
 
@@ -181,7 +181,7 @@ global cell jetton_wallet_code;
         .store_uint(query_id, 64)
         .store_coins(uton_amount)
         .store_slice(owner_address)
-        .store_uint(withdraw_cnt, 64)
+        .store_uint(withdraw_id, 64)
         .store_slice(response_address)
         .end_cell();
 
