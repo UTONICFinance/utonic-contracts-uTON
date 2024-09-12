@@ -6,7 +6,8 @@
     "compilewallet": "npx func-js contracts/wallet.func --boc build/wallet.cell",
     "compilewithdraw": "npx func-js contracts/withdraw.func --boc build/withdraw.cell",
     "compileproxywhale": "npx func-js contracts/proxy/proxy_whale/proxy_whale.func --boc build/proxy_whale.cell",
-    "compileproxystton": "npx func-js contracts/proxy/proxy_stton/proxy_stton.func --boc build/proxy_stton.cell"
+    "compileproxystton": "npx func-js contracts/proxy/proxy_stton/proxy_stton.func --boc build/proxy_stton.cell",
+    "test": "jest --verbose"
   },
   "devDependencies": {
     "@ton/blueprint": "^0.22.0",

@@ -4,6 +4,8 @@ import { getHttpEndpoint } from "@orbs-network/ton-access";
 import { mnemonicToWalletKey } from "ton-crypto";
 import { TonClient, Cell, Address, WalletContractV4, beginCell } from "@ton/ton";
 import UTonic from "../wrappers/UTonic";
+import { jettonMinterInitData } from "../libs/cells";
+import { PRICE_BASE } from "../wrappers/constants/params";
 
 const OFF_CHAIN_CONTENT_PREFIX = 0x01;
 
@@ -43,29 +45,6 @@ export function encodeOffChainContent(content: string) {
 	return makeSnakeCell(data);
 }
 
-function jettonMinterInitData(
-  last_price_day: number,
-  last_price: number,
-  price_inc: number,
-  owner: Address,
-  ton_receiver: Address,
-  metadata: string,
-  walletCode: Cell,
-  withdrawCode: Cell
-): Cell {
-  return beginCell()
-    .storeCoins(0)
-    .storeUint(last_price_day, 32)
-    .storeUint(last_price, 32)
-    .storeUint(price_inc, 32)
-    .storeCoins(0)
-    .storeAddress(owner)
-    .storeAddress(ton_receiver)
-    .storeRef(encodeOffChainContent(metadata))
-    .storeRef(walletCode)
-    .storeRef(withdrawCode)
-    .endCell();
-}
 
 export async function run() {
   // initialize ton rpc client on testnet
@@ -81,15 +60,18 @@ export async function run() {
   const minterCode = Cell.fromBoc(fs.readFileSync("build/minter.cell"))[0];
   const walletCode = Cell.fromBoc(fs.readFileSync("build/wallet.cell"))[0];
   const withdrawCode = Cell.fromBoc(fs.readFileSync("build/withdraw.cell"))[0];
+  const proxyWhaleCode = Cell.fromBoc(fs.readFileSync("build/proxy_whale.cell"))[0];
   const data = jettonMinterInitData(
     Math.floor(new Date().getTime() / 1000 / 24 / 3600),
+    PRICE_BASE,
     0,
-    0,
+    wallet.address,
     wallet.address,
     wallet.address,
     'UTonicMinter',
     walletCode,
-    withdrawCode
+    withdrawCode,
+    proxyWhaleCode
   )
   const utonic = UTonic.createForDeploy(minterCode, data);
 
