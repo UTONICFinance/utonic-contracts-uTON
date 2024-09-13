@@ -373,19 +373,26 @@ global cell proxy_whale_code;
         .store_uint(0, 1)
     .end_cell();
 
-    cell whale_proxies_dict = in_msg_body~load_dict();
-    (int current_key, slice current_proxy_whale, int finish_flag) = whale_proxies_dict.udict_get_min?(8);
+    cell whale_data_dict = in_msg_body~load_dict();
+    (int current_key, slice whale_data, int finish_flag) = whale_data_dict.udict_get_min?(8);
     int idx = 0;
     while (finish_flag & idx < proxy_num) {
+        slice user_address = whale_data~load_msg_addr();
+        slice nominator_pool = whale_data~load_msg_addr();
+
+        cell state_init = calculate_proxy_whale_state_init(user_address, my_address(), nominator_pool, proxy_whale_code);
+        slice proxy_whale_address = calculate_proxy_whale_address(state_init);
+
         var msg = begin_cell()
             .store_uint(0x18, 6)
-            .store_slice(current_proxy_whale)
+            .store_slice(proxy_whale_address)
             ;; todo determine msg value for burn notification
             .store_coins(PROXY_WHALE_ENABLE_SWITCH_FEE)
-            .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+            .store_ref(state_init)
             .store_ref(msg_body);
         send_raw_message(msg.end_cell(), 0);
-        (current_key, current_proxy_whale, finish_flag) = whale_proxies_dict.udict_get_next?(8, current_key);
+        (current_key, whale_data, finish_flag) = whale_data_dict.udict_get_next?(8, current_key);
         idx += 1;
     }
     save_global_data();

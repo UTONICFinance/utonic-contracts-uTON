@@ -10,6 +10,7 @@
 #include "storage.func";
 #include "params.func";
 #include "op.func";
+#include "errors.func";
 
 global slice owner_address;
 global slice jetton_master_address;
@@ -114,14 +115,25 @@ global int withdraw_capacity;
     send_raw_message(notify_msg.end_cell(), 1);
 }
 
-() withdraw_to_proxy (slice in_msg_body) impure {
+() withdraw_to_proxy (slice in_msg_body, int my_ton_balance, int fwd_fee, int msg_value) impure {
     
     load_global_data();
     ;; throw_unless(NOT_ENABLED, enabled == 1);
 
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    int storage_fee = PROXY_WHALE_MIN_TON_STORAGE - min(ton_balance_before_msg, PROXY_WHALE_MIN_TON_STORAGE);
+    throw_unless(
+        INSUFFICIENT_VALUE, 
+        msg_value > storage_fee 
+            + PROXY_WHALE_WITHDRAW_FROM_PROXY_FEE 
+            + fwd_fee 
+            + NOMINATOR_WITHDRAW_FEE
+    );
     int query_id = in_msg_body~load_uint(64);
     int amount = in_msg_body~load_coins();
     amount = min(amount, withdraw_capacity);
+    throw_unless(INVALID_WITHDRAW_AMOUNT, amount > 0);
+
     var withdraw_msg_body = begin_cell()
         .store_uint(NOMINATOR_WITHDRAW_OP, 32)
         .store_uint(query_id, 64)
@@ -131,11 +143,29 @@ global int withdraw_capacity;
     var withdraw_msg = begin_cell()
         .store_uint(0x18, 6)
         .store_slice(nominator_pool)
-        .store_coins(0)
+        .store_coins(NOMINATOR_WITHDRAW_FEE)
         .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
         .store_ref(withdraw_msg_body);
 
-    send_raw_message(withdraw_msg.end_cell(), 64); ;; withdraw from nominator msg-64
+    send_raw_message(withdraw_msg.end_cell(), 1); ;; withdraw from nominator
+
+    msg_value = msg_value 
+        - PROXY_WHALE_WITHDRAW_FROM_PROXY_FEE 
+        - NOMINATOR_WITHDRAW_FEE
+        - fwd_fee;
+
+    slice response_address = in_msg_body~load_msg_addr();
+
+    if (response_address.preload_uint(2) != 0) {
+        var excess_msg = begin_cell()
+            .store_uint(0x10, 6) ;; nobounce - int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool src:MsgAddress -> 011000
+            .store_slice(response_address)
+            .store_coins(msg_value)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_uint(EXCESSES, 32)
+            .store_uint(query_id, 64);
+        send_raw_message(excess_msg.end_cell(), 2);
+    }
 }
 
 
@@ -182,9 +212,9 @@ global int withdraw_capacity;
     int ton_balance_before_msg = my_ton_balance - msg_value;
     int storage_fee = PROXY_WHALE_MIN_TON_STORAGE - min(ton_balance_before_msg, PROXY_WHALE_MIN_TON_STORAGE);
     
-    msg_value -= (storage_fee + PROXY_WHALE_WITHDRAW_FEE);
+    msg_value -= (storage_fee + PROXY_WHALE_WITHDRAW_FROM_PROXY_FEE);
 
-    int max_ton = my_ton_balance - PROXY_WHALE_MIN_TON_STORAGE - PROXY_WHALE_WITHDRAW_FEE;
+    int max_ton = my_ton_balance - PROXY_WHALE_MIN_TON_STORAGE - PROXY_WHALE_WITHDRAW_FROM_PROXY_FEE;
     int real_withdraw_amount = min(min(max_ton, amount), withdraw_capacity);
     throw_unless(INVALID_AMOUNT, real_withdraw_amount > 0);
 
@@ -245,7 +275,7 @@ global int withdraw_capacity;
     }
 
     if (op == WITHDRAW_TO_PROXY) {
-        withdraw_to_proxy(in_msg_body);
+        withdraw_to_proxy(in_msg_body, my_balance, fwd_fee, msg_value);
         return ();
     }
 
@@ -262,7 +292,7 @@ global int withdraw_capacity;
     throw(0xffff);
 }
 
-(slice, slice, slice, int, int) get_proxy_data() method_id {
+(slice, slice, slice, int, int) get_proxy_whale_data() method_id {
     load_global_data();
     return (
         owner_address, 
