@@ -7,14 +7,15 @@ const EVENT_BURN = 2;
 const EVENT_BURN_FOR_WHALE = 3;
 const EVENT_WITHDRAW = 4;
 
-() emit_stake_log(slice user_address, int proxy_type, slice proxy_address, int pay_token_amount, int uton_amount, int price, int timestamp) impure {
+() emit_stake_log(slice user_address, int proxy_type, int proxy_id, slice proxy_address, int ton_amount, int uton_amount, int price, int timestamp) impure {
     
     var msg_body = begin_cell()
         .store_uint(EVENT_STAKE, EVENT_LEN)
         .store_slice(user_address)
-        .store_uint(proxy_type, PROXY_WHITE_LIST_KEY_LEN)
+        .store_uint(proxy_type, 32)
+        .store_uint(proxy_id, 32)
         .store_slice(proxy_address)
-        .store_coins(pay_token_amount)
+        .store_coins(ton_amount)
         .store_coins(uton_amount)
         .store_uint(price, 64)
         .store_uint(timestamp, 64)

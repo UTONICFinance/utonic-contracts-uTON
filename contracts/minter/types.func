@@ -1,0 +1,4 @@
+const PROXY_TYPE_WHALE1 = 0;
+const PROXY_TYPE_WHALE2 = 1;
+const PROXY_TYPE_TON = 2;
+const PROXY_TYPE_STTON = 3;
