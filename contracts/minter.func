@@ -132,7 +132,8 @@ global cell proxy_whale_code;
     mint_tokens(query_id, user_address, user_address, uton_amount, MINT_FEE);
     total_supply += uton_amount;
     save_global_data();
-    emit_stake_log(ton_amount, uton_amount, price, user_address, 255, begin_cell().store_uint(0, 2).end_cell().begin_parse(), timestamp);
+    slice none_address = begin_cell().store_uint(0, 2).end_cell().begin_parse();
+    emit_stake_log(user_address, 255, none_address, ton_amount, uton_amount, price, timestamp);
 }
 
 () proxy_whale_stake(int query_id, slice sender_address, int msg_value, slice in_msg_body) impure {
@@ -159,7 +160,7 @@ global cell proxy_whale_code;
     save_global_data();   
 
     mint_tokens(query_id, uton_receiver_address, response_address, uton_amount, msg_value - PROCESS_MINT_FEE);
-    emit_stake_log(ton_amount, uton_amount, price, user_address, 0, sender_address, timestamp);
+    emit_stake_log(user_address, 0, sender_address, ton_amount, uton_amount, price, timestamp);
 }
 
 () proxy_ordinary_stake(int query_id, int proxy_type, slice sender_address, int msg_value, slice in_msg_body) impure {
@@ -183,7 +184,7 @@ global cell proxy_whale_code;
     save_global_data();   
 
     mint_tokens(query_id, user_address, response_address, uton_amount, msg_value - PROCESS_MINT_FEE);
-    emit_stake_log(pay_token_amount, uton_amount, price, user_address, proxy_type, sender_address, timestamp);
+    emit_stake_log(user_address, proxy_type, sender_address, pay_token_amount, uton_amount, price, timestamp);
 }
 
 
@@ -203,7 +204,8 @@ global cell proxy_whale_code;
     slice user_address, 
     int withdraw_id, 
     cell withdraw_code,
-    cell master_msg) impure {
+    cell master_msg,
+    int msg_value) impure {
 
     cell state_init = calculate_withdraw_state_init(
         withdraw_id, user_address, my_address(), withdraw_code
@@ -212,23 +214,24 @@ global cell proxy_whale_code;
     var msg = begin_cell()
         .store_uint(0x18, 6)
         .store_slice(withdraw_address)
-        .store_coins(0)
+        .store_coins(msg_value)
         .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
         .store_ref(state_init)
         .store_ref(master_msg);
-    send_raw_message(msg.end_cell(), 64); ;; pending-withdraw msg-64
+    send_raw_message(msg.end_cell(), 0);
 }
 
 () burn(int query_id, slice sender_address, int msg_value, slice in_msg_body) impure {
 
+    throw_unless(INSUFFICIENT_VALUE, msg_value >= PROCESS_BURN_FEE + WITHDRAW_INIT_FEE);
     load_global_data();
 
     int uton_amount = in_msg_body~load_coins();
-    slice from_address = in_msg_body~load_msg_addr();
+    slice user_address = in_msg_body~load_msg_addr();
     int withdraw_id = in_msg_body~load_uint(64);
     slice response_address = in_msg_body~load_msg_addr();
     ;; check wallet address
-    throw_unless(WRONG_CALLER, equal_slices(calculate_user_jetton_wallet_address(from_address, my_address(), jetton_wallet_code), sender_address));
+    throw_unless(WRONG_CALLER, equal_slices(calculate_user_jetton_wallet_address(user_address, my_address(), jetton_wallet_code), sender_address));
 
     ;; calculate ton amount
     int timestamp = now();
@@ -256,15 +259,18 @@ global cell proxy_whale_code;
     .end_cell();
 
     _pending_withdraw(
-        from_address, 
+        user_address, 
         withdraw_id, 
         withdraw_code,
-        master_msg
+        master_msg,
+        msg_value - PROCESS_BURN_FEE
     );
+    emit_burn_log(user_address, withdraw_id, uton_amount, ton_amount, price, timestamp);
 }
 
 () proxy_whale_burn(int query_id, slice sender_address, int msg_value, slice in_msg_body) impure {
-
+    
+    throw_unless(INSUFFICIENT_VALUE, msg_value >= PROCESS_PROXY_WHALE_BURN_FEE + PROXY_WHALE_ADD_WITHDRAW_CAPACITY_FEE);
     load_global_data();
 
     int uton_amount = in_msg_body~load_coins();
@@ -296,10 +302,12 @@ global cell proxy_whale_code;
         .store_uint(0x18, 6)
         .store_slice(proxy_address)
         ;; todo determine msg value for burn notification
-        .store_coins(0)
+        .store_coins(msg_value - PROCESS_PROXY_WHALE_BURN_FEE)
         .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
         .store_ref(msg_body);
-    send_raw_message(msg.end_cell(), 64); ;; large proxy burn msg-64
+    send_raw_message(msg.end_cell(), 0);
+
+    emit_burn_for_whale_log(from_address, proxy_address, uton_amount, ton_amount, price, timestamp);
 }
 
 () withdraw(int query_id, slice sender_address, slice in_msg_body, int my_ton_balance, int msg_value) impure {
@@ -309,13 +317,13 @@ global cell proxy_whale_code;
     throw_unless(INSUFFICIENT_VALUE, msg_value >= PROCESS_WITHDRAW_FEE);
 
     int ton_amount = in_msg_body~load_coins();
-    slice from_address = in_msg_body~load_msg_addr();
+    slice user_address = in_msg_body~load_msg_addr();
     slice recipient_address = in_msg_body~load_msg_addr();
     int withdraw_id = in_msg_body~load_uint(64);
     int balance_before_msg = my_ton_balance - msg_value;
     
     throw_unless(INSUFFICIENT_BALANCE, balance_before_msg - ton_amount >= MINIMAL_RESERVE);
-    throw_unless(WRONG_CALLER, equal_slices(calculate_user_withdraw_address(from_address, withdraw_id, my_address(), withdraw_code), sender_address));
+    throw_unless(WRONG_CALLER, equal_slices(calculate_user_withdraw_address(user_address, withdraw_id, my_address(), withdraw_code), sender_address));
     
     debt_ton -= ton_amount;
     save_global_data();
@@ -341,6 +349,8 @@ global cell proxy_whale_code;
             .store_uint(query_id, 64);
         send_raw_message(msg_excesses.end_cell(), 2);
     }
+
+    emit_withdraw_log(user_address, withdraw_id, ton_amount, recipient_address, now());
 }
 
 () update_proxy_whale_whitelist(int query_id, slice sender_address, int msg_value, slice in_msg_body) impure {
