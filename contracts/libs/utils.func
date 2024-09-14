@@ -42,50 +42,11 @@ cell calculate_jetton_wallet_state_init(
 slice calculate_jetton_wallet_address(cell state_init) inline {
   return begin_cell()
     .store_uint(4, 3)
-    .store_int(WORKCHAIN, 8)
+    .store_int(COMMON::WORKCHAIN, 8)
     .store_uint(cell_hash(state_init), 256)
   .end_cell().begin_parse();
 }
 
 slice calculate_user_jetton_wallet_address(slice owner_address, slice jetton_master_address, cell jetton_wallet_code) inline {
   return calculate_jetton_wallet_address(calculate_jetton_wallet_state_init(owner_address, jetton_master_address, jetton_wallet_code));
-}
-
-cell pack_withdraw_data(int withdraw_id, int uton_amount, int ton_amount, int burn_timestamp, int burn_price, int finished, slice owner_address, slice jetton_master_address) inline {
-  return  begin_cell()
-    .store_uint(withdraw_id, 64)
-    .store_coins(uton_amount)
-    .store_coins(ton_amount)
-    .store_uint(burn_timestamp, 64)
-    .store_uint(burn_price, 64)
-    .store_uint(finished, 1)
-    .store_slice(owner_address)
-    .store_slice(jetton_master_address)
-  ;; todo
-  .end_cell();
-}
-
-cell calculate_withdraw_state_init(int withdraw_id, slice owner_address, slice jetton_master_address, cell withdraw_code) inline {
-  return begin_cell()
-    .store_uint(0, 2)
-    .store_dict(withdraw_code)
-    .store_dict(pack_withdraw_data(
-      withdraw_id, 0, 0, 0, 0, 0,
-      owner_address, 
-      jetton_master_address
-    ))
-    .store_uint(0, 1)
-  .end_cell();
-}
-
-slice calculate_withdraw_address(cell state_init) inline {
-  return begin_cell()
-    .store_uint(4, 3)
-    .store_int(WORKCHAIN, 8)
-    .store_uint(cell_hash(state_init), 256)
-  .end_cell().begin_parse();
-}
-
-slice calculate_user_withdraw_address(slice owner_address, int withdraw_id, slice jetton_master_address, cell withdraw_code) inline {
-  return calculate_withdraw_address(calculate_withdraw_state_init(withdraw_id, owner_address, jetton_master_address, withdraw_code));
 }

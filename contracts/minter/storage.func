@@ -1,5 +1,5 @@
 
-(int, int, int, int, int, slice, cell, cell, cell, cell) load_data() impure inline {
+(int, int, int, int, int, slice, cell, cell, cell) load_data() impure inline {
   slice ds = get_data().begin_parse();
   int lc_total_supply = ds~load_coins(); ;; total_supply
   int lc_last_price_day = ds~load_uint(32); ;; last_price_day
@@ -12,9 +12,7 @@
   cell lc_proxy_whitelist = address_cell~load_dict(); ;; load dict of ordinary user proxy whitelist
   
   cell lc_content = ds~load_ref(); ;; content
-  slice code_cell = ds~load_ref().begin_parse();
-  cell lc_jetton_wallet_code = code_cell~load_ref();
-  cell lc_withdraw_code = code_cell~load_ref();
+  cell lc_jetton_wallet_code = ds~load_ref();
 
   return (
     lc_total_supply,
@@ -25,8 +23,7 @@
     lc_admin_address,
     lc_proxy_whitelist,
     lc_content,
-    lc_jetton_wallet_code,
-    lc_withdraw_code
+    lc_jetton_wallet_code
   );
 }
 
@@ -39,13 +36,8 @@
     slice lc_admin_address, 
     cell lc_proxy_whitelist,
     cell lc_content, 
-    cell lc_jetton_wallet_code, 
-    cell lc_withdraw_code) impure inline {
+    cell lc_jetton_wallet_code) impure inline {
 
-  cell code_cell = begin_cell()
-      .store_ref(lc_jetton_wallet_code)
-      .store_ref(lc_withdraw_code)
-      .end_cell();
   cell address_cell = begin_cell()
       .store_slice(lc_admin_address)
       .store_dict(lc_proxy_whitelist)
@@ -59,7 +51,7 @@
       .store_coins(lc_debt_ton)
       .store_ref(address_cell)
       .store_ref(lc_content)
-      .store_ref(code_cell)
+      .store_ref(lc_jetton_wallet_code)
       .end_cell()
     );
 }

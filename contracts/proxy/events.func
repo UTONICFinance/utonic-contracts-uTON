@@ -1,0 +1,26 @@
+#include "../imports/stdlib.fc";
+#include "../common/params.func";
+
+const PROXY_TON::EVENT::CODE_BASE = 0x4000;
+
+const PROXY_TON::EVENT::WITHDRAW = PROXY_TON::EVENT::CODE_BASE + 1;
+() emit_withdraw_log(slice user_address, int withdraw_id, int ton_amount, slice recipient_address, int withdraw_timestamp) impure {
+
+    var msg_body = begin_cell()
+        .store_uint(PROXY_TON::EVENT::WITHDRAW, COMMON::EVENT_LEN)
+        .store_slice(user_address)
+        .store_uint(withdraw_id, 64)
+        .store_coins(ton_amount)
+        .store_uint(withdraw_timestamp, 64)
+        .end_cell();
+
+    var msg = begin_cell()
+        .store_uint (12, 4)             ;; ext_out_msg_info$11 addr$00
+        .store_uint (0, 2)              ;; dest addr$00
+        .store_uint(1, 64 + 32 + 1 + 1) ;; lt, at, init, body
+        .store_ref(msg_body)
+        .end_cell();
+    
+    send_raw_message(msg, 0);
+
+}

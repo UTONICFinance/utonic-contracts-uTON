@@ -1,18 +1,25 @@
 #include "../../imports/stdlib.fc";
 #include "../../libs/utils.func";
+
+#include "../../common/op.func";
 #include "../../common/errors.func";
-#include "../../jetton/op.func";
+
+#include "../../standard/op.func";
+
 #include "../../minter/op.func";
 #include "../../minter/params.func";
 #include "../../minter/errors.func";
+
+#include "../../wallet/params.func";
 
 #include "op.func";
 #include "errors.func";
 #include "params.func";
 #include "storage.func";
 
-global int price;
+global int stton_price;
 global int proxy_type;
+global int proxy_id;
 global slice utonic_minter_address;
 global slice admin_address;
 global slice stton_wallet;
@@ -20,8 +27,9 @@ global slice stton_receiver_address;
 
 () load_global_data() impure inline {
     (
-        price,
+        stton_price,
         proxy_type,
+        proxy_id,
         utonic_minter_address,
         admin_address,
         stton_wallet,
@@ -31,8 +39,9 @@ global slice stton_receiver_address;
 
 () save_global_data() impure inline {
     save_data(
-        price,
+        stton_price,
         proxy_type,
+        proxy_id,
         utonic_minter_address,
         admin_address,
         stton_wallet,
@@ -40,21 +49,14 @@ global slice stton_receiver_address;
     );
 }
 
-(int) get_day(int timestamp) inline {
-  return timestamp / ONE_DAY;
-}
-
-(int) get_current_day() inline {
-    return get_day(now());
-}
-
-(int) get_uton_amount(int stton_amount, int price) inline {
-    return stton_amount * PRICE_BASE / price;
+(int) get_ton_amount(int stton_amount, int current_stton_price) inline {
+    return stton_amount * current_stton_price / COMMON::PRICE_BASE;
 }
 
 () _send_stton(int query_id, int amount, slice response_address, int send_all_fee) impure {
+    throw_unless(PROXYST::ERR::STTON_RECEIVER_NOT_SET, stton_receiver_address.preload_uint(2) != 0);
     var msg_body = begin_cell()
-        .store_uint(TRANSFER, 32)
+        .store_uint(JETTON::OP::TRANSFER, 32)
         .store_uint(query_id, 64) 
         .store_coins(amount)
         .store_slice(stton_receiver_address) 
@@ -62,7 +64,7 @@ global slice stton_receiver_address;
         .store_coins(0) 
         .store_uint(0, 1)
     .end_cell();
-    int msg_value = send_all_fee ? 0 : PROXYST_TRANSFER_FEE;
+    int msg_value = send_all_fee ? 0 : PROXYST::TRANSFER_FEE;
     var msg = begin_cell()
         .store_uint(0x18, 6)
         .store_slice(stton_wallet)
@@ -81,49 +83,45 @@ global slice stton_receiver_address;
    
     load_global_data();
 
-    throw_unless(PROXYST_WALLET_NOT_SET, stton_wallet.preload_uint(2) != 0);
+    throw_unless(PROXYST::ERR::WALLET_NOT_SET, stton_wallet.preload_uint(2) != 0);
 
     int stton_amount = in_msg_body~load_coins();
     slice user_address = in_msg_body~load_msg_addr();
     slice response_address = in_msg_body~load_msg_addr();
-    throw_unless(INVALID_AMOUNT, stton_amount > 0);
+    throw_unless(COMMON::ERR::INVALID_AMOUNT, stton_amount > 0);
 
     int ton_balance_before_msg = my_ton_balance - msg_value;
-    int storage_fee = PROXYST_MIN_TON_STORAGE - min(ton_balance_before_msg, PROXYST_MIN_TON_STORAGE);
+    int storage_fee = PROXYST::MIN_TON_STORAGE - min(ton_balance_before_msg, PROXYST::MIN_TON_STORAGE);
 
     throw_unless(
-        INSUFFICIENT_VALUE, 
+        COMMON::ERR::INSUFFICIENT_VALUE, 
         msg_value > 
         storage_fee
-        + PROXYST_TRANSFER_NOTIFICATION_FEE 
-        + PROXYST_TRANSFER_FEE
-        + PROCESS_ORDINARY_PROXY_MINT_FEE
-        + MINT_FEE
+        + PROXYST::TRANSFER_NOTIFICATION_FEE 
+        + PROXYST::TRANSFER_FEE
+        + MINTER::MINT_FEE
+        + WALLET::MINT_FEE
         + fwd_fee * 2
     );
     _send_stton(query_id, stton_amount, response_address, false);
 
     int remain_msg_value = msg_value 
-        - PROXYST_TRANSFER_NOTIFICATION_FEE 
-        - PROXYST_TRANSFER_FEE
+        - PROXYST::TRANSFER_NOTIFICATION_FEE 
+        - PROXYST::TRANSFER_FEE
         - storage_fee
         - fwd_fee - fwd_fee;
 
-    ;; calculate token amount
-    int timestamp = now();
-    int today = get_day(timestamp);
-    int uton_amount = get_uton_amount(stton_amount, price);
+    ;; calculate ton amount
+    int ton_amount = get_ton_amount(stton_amount, stton_price);
 
     ;; then send notify msg to utonic minter(jetton master)
     var notify_msg_body = begin_cell()
-        .store_uint(DEPOSIT_NOTIFICATION, 32)
+        .store_uint(COMMON::OP::STAKE, 32)
         .store_uint(query_id, 64)
-        .store_uint(proxy_type, PROXY_WHITE_LIST_KEY_LEN)
-        .store_coins(stton_amount)
-        .store_coins(uton_amount)
-        .store_uint(price, 64)
+        .store_uint(proxy_type, 32)
+        .store_uint(proxy_id, 32)
+        .store_coins(ton_amount)
         .store_slice(user_address)
-        .store_uint(timestamp, 64)
         .store_slice(response_address)
         .end_cell();
 
@@ -161,33 +159,33 @@ global slice stton_receiver_address;
     int op = in_msg_body~load_uint(32);
     int query_id = in_msg_body~load_uint(64);
 
-    if (op == TRANSFER_NOTIFICATION) {
+    if (op == JETTON::OP::TRANSFER_NOTIFICATION) {
         proxy_stake(query_id,in_msg_body,sender_address,balance,fwd_fee,msg_value);
         return ();
     }
 
     ;; admin operate
-    if (op == PROXYST_UPDATE_ADMIN) {
+    if (op == PROXYST::UPDATE_ADMIN) {
         load_global_data();
-        throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         slice new_admin_address = in_msg_body~load_msg_addr();
         admin_address = new_admin_address;
         save_global_data();
         return ();
     }
 
-    if (op == PROXYST_UPDATE_PRICE) {
+    if (op == PROXYST::UPDATE_PRICE) {
         load_global_data();
-        throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         
-        price = in_msg_body~load_uint(64);
+        stton_price = in_msg_body~load_uint(64);
         save_global_data();
         return ();
     }
 
-    if (op == PROXYST_UPDATE_PROXYST_WALLET) {
+    if (op == PROXYST::UPDATE_PROXYST_WALLET) {
         load_global_data();
-        throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         
         slice wallet = in_msg_body~load_msg_addr();
         stton_wallet = wallet;
@@ -195,9 +193,9 @@ global slice stton_receiver_address;
         return ();
     }
 
-    if (op == PROXYST_UPDATE_STTON_RECEIVER) {
+    if (op == PROXYST::UPDATE_STTON_RECEIVER) {
         load_global_data();
-        throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         
         slice receiver = in_msg_body~load_msg_addr();
         stton_receiver_address = receiver;
@@ -205,9 +203,9 @@ global slice stton_receiver_address;
         return ();
     }
 
-    if (op == PROXYST_SEND_STTON) {
+    if (op == PROXYST::SEND_STTON) {
         load_global_data();
-        throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         int amount = in_msg_body~load_coins();
         slice response_address = in_msg_body~load_msg_addr();
         _send_stton(query_id, amount, response_address, true);
@@ -217,11 +215,12 @@ global slice stton_receiver_address;
     throw(0xffff);
 }
 
-(int, int, slice, slice, slice, slice) get_proxy_stton_data() method_id {
+(int, int, int, slice, slice, slice, slice) get_proxy_stton_data() method_id {
     load_global_data();
     return (
-        price,
+        stton_price,
         proxy_type,
+        proxy_id,
         utonic_minter_address,
         admin_address,
         stton_wallet,
