@@ -1,0 +1,7 @@
+
+export const OP_EXCESSES = 0xd53276db;
+export const JETTON_OP_TRANSFER = 0xf8a7ea5;
+export const JETTON_OP_TRANSFER_NOTIFICATION = 0x7362d09c;
+export const JETTON_OP_INTERNAL_TRANSFER = 0x178d4519;
+export const JETTON_OP_BURN = 0x595f07bc;
+export const JETTON_OP_BURN_NOTIFICATION = 0x7bdd97de;
