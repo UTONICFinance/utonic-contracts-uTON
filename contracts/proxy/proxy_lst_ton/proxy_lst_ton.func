@@ -193,7 +193,7 @@ global slice lst_ton_receiver_address;
         return ();
     }
 
-    if (op == PROXYLST::UPDATE_lst_ton_RECEIVER) {
+    if (op == PROXYLST::UPDATE_LST_TON_RECEIVER) {
         load_global_data();
         throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         
@@ -203,7 +203,7 @@ global slice lst_ton_receiver_address;
         return ();
     }
 
-    if (op == PROXYLST::SEND_lst_ton) {
+    if (op == PROXYLST::SEND_LST_TON) {
         load_global_data();
         throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         int amount = in_msg_body~load_coins();
