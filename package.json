@@ -5,8 +5,10 @@
     "compileminter": "npx func-js contracts/minter.func --boc build/minter.cell",
     "compilewallet": "npx func-js contracts/wallet.func --boc build/wallet.cell",
     "compilewithdraw": "npx func-js contracts/proxy/proxy_ton/withdraw/withdraw.func --boc build/withdraw.cell",
-    "compileproxytston": "npx func-js contracts/proxy/proxy_tston/proxy_tston.func --boc build/proxy_tston.cell",
+    "compileproxylstton": "npx func-js contracts/proxy/proxy_lst_ton/proxy_lst_ton.func --boc build/proxy_lst_ton.cell",
     "compileproxyton": "npx func-js contracts/proxy/proxy_ton/proxy_ton.func --boc build/proxy_ton.cell",
+    "compiletestjettonminter": "npx func-js contracts/test/jetton/minter.func --boc build/test_jetton_minter.cell",
+    "compiletestjettonwallet": "npx func-js contracts/test/jetton/wallet.func --boc build/test_jetton_wallet.cell",
     "test": "jest --verbose"
   },
   "devDependencies": {
