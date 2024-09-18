@@ -12,14 +12,25 @@ export default class ProxyLSTTon implements Contract {
     adminAddress: Address,
     lstTonReceiver: Address
   ): Cell {
-    return beginCell()
+    const dataCell = beginCell()
       .storeUint(proxyType, 32)
       .storeUint(proxyId, 32)
       .storeUint(lstTonPrice, 64)
+    .endCell();
+    const authCell = beginCell()
       .storeAddress(utonicMinterAddress)
       .storeAddress(adminAddress)
-      .storeUint(0, 2)
+    .endCell();
+    const receiverCell = beginCell()
+      // tmp address, will be replaced with proxyLSTTon wallet by admin
       .storeAddress(lstTonReceiver)
+      .storeAddress(lstTonReceiver)
+    .endCell();
+
+    return beginCell()
+      .storeRef(dataCell)
+      .storeRef(authCell)
+      .storeRef(receiverCell)
       .endCell()
   }
 
