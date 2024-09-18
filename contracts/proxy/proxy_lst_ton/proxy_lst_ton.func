@@ -54,7 +54,7 @@ global slice lst_ton_receiver_address;
 }
 
 () _send_lst_ton(int query_id, int amount, slice response_address, int send_all_fee) impure {
-    throw_unless(PROXYLST::ERR::lst_ton_RECEIVER_NOT_SET, lst_ton_receiver_address.preload_uint(2) != 0);
+    throw_unless(PROXYLST::ERR::LST_TON_RECEIVER_NOT_SET, lst_ton_receiver_address.preload_uint(2) != 0);
     var msg_body = begin_cell()
         .store_uint(JETTON::OP::TRANSFER, 32)
         .store_uint(query_id, 64) 
