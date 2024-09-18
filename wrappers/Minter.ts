@@ -1,5 +1,5 @@
 import { Contract, ContractProvider, Sender, Address, Cell, contractAddress, beginCell, Slice, TupleItemSlice, TupleItemInt, Dictionary } from "@ton/core";
-import { MINTER_OP_UPDATE_PRICE, MINTER_OP_UPDATE_PRICE_INC, MINTER_OP_UPDATE_PROXY_WHITELIST } from "./minter/opcodes"
+import { MINTER_OP_UPDATE_CODE_AND_DATA, MINTER_OP_UPDATE_PRICE, MINTER_OP_UPDATE_PRICE_INC, MINTER_OP_UPDATE_PROXY_WHITELIST } from "./minter/opcodes"
 import { encodeOffChainContent } from "../libs/cells";
 import { COMMON_OP_STAKE } from "./common/opcodes";
 
@@ -119,6 +119,20 @@ export default class Minter implements Contract {
       .storeAddress(userAddress)
       .storeAddress(responseAddress)
       .endCell();
+    await provider.internal(via, {
+      value,
+      body: messageBody
+    });
+  }
+
+  async sendUpdateCode(provider: ContractProvider, via: Sender, queryId: number, code: Cell, value: string) {
+    const messageBody = beginCell()
+      .storeUint(MINTER_OP_UPDATE_CODE_AND_DATA, 32) // op 
+      .storeUint(queryId, 64) // query id
+      .storeRef(code)
+      .storeRef(Cell.EMPTY)
+      .endCell();
+    
     await provider.internal(via, {
       value,
       body: messageBody
