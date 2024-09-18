@@ -1,23 +1,32 @@
 #include "../../../common/params.func";
 
 cell pack_withdraw_data(
-  int withdraw_id, 
-  int uton_amount, 
-  int ton_amount, 
-  int burn_price, 
-  int burn_timestamp, 
-  int finished, 
-  slice owner_address, 
-  slice master_address) inline {
+  int lc_withdraw_id, 
+  int lc_uton_amount, 
+  int lc_ton_amount, 
+  int lc_burn_price, 
+  int lc_burn_timestamp, 
+  int lc_finished, 
+  slice lc_owner_address, 
+  slice lc_master_address) inline {
+
+  cell data_cell = begin_cell()
+    .store_uint(lc_withdraw_id, 64)
+    .store_coins(lc_uton_amount)
+    .store_coins(lc_ton_amount)
+    .store_uint(lc_burn_price, 64)
+    .store_uint(lc_burn_timestamp, 64)
+    .store_uint(lc_finished, 1)
+    .end_cell();
+  
+  cell address_cell = begin_cell()
+    .store_slice(lc_owner_address)
+    .store_slice(lc_master_address)
+    .end_cell();
+
   return  begin_cell()
-    .store_uint(withdraw_id, 64)
-    .store_coins(uton_amount)
-    .store_coins(ton_amount)
-    .store_uint(burn_price, 64)
-    .store_uint(burn_timestamp, 64)
-    .store_uint(finished, 1)
-    .store_slice(owner_address)
-    .store_slice(master_address)
+    .store_ref(data_cell)
+    .store_ref(address_cell)
   ;; todo
   .end_cell();
 }
