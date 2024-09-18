@@ -17,49 +17,49 @@
 #include "params.func";
 #include "storage.func";
 
-global int lstton_price;
 global int proxy_type;
 global int proxy_id;
+global int lst_ton_price;
 global slice utonic_minter_address;
 global slice admin_address;
-global slice lstton_wallet;
-global slice lstton_receiver_address;
+global slice lst_ton_wallet;
+global slice lst_ton_receiver_address;
 
 () load_global_data() impure inline {
     (
-        lstton_price,
         proxy_type,
         proxy_id,
+        lst_ton_price,
         utonic_minter_address,
         admin_address,
-        lstton_wallet,
-        lstton_receiver_address
+        lst_ton_wallet,
+        lst_ton_receiver_address
     ) = load_data();
 }
 
 () save_global_data() impure inline {
     save_data(
-        lstton_price,
         proxy_type,
         proxy_id,
+        lst_ton_price,
         utonic_minter_address,
         admin_address,
-        lstton_wallet,
-        lstton_receiver_address
+        lst_ton_wallet,
+        lst_ton_receiver_address
     );
 }
 
-(int) get_ton_amount(int lstton_amount, int current_lstton_price) inline {
-    return lstton_amount * current_lstton_price / COMMON::PRICE_BASE;
+(int) get_ton_amount(int lst_ton_amount, int current_lst_ton_price) inline {
+    return lst_ton_amount * current_lst_ton_price / COMMON::PRICE_BASE;
 }
 
-() _send_lstton(int query_id, int amount, slice response_address, int send_all_fee) impure {
-    throw_unless(PROXYLST::ERR::lstton_RECEIVER_NOT_SET, lstton_receiver_address.preload_uint(2) != 0);
+() _send_lst_ton(int query_id, int amount, slice response_address, int send_all_fee) impure {
+    throw_unless(PROXYLST::ERR::lst_ton_RECEIVER_NOT_SET, lst_ton_receiver_address.preload_uint(2) != 0);
     var msg_body = begin_cell()
         .store_uint(JETTON::OP::TRANSFER, 32)
         .store_uint(query_id, 64) 
         .store_coins(amount)
-        .store_slice(lstton_receiver_address) 
+        .store_slice(lst_ton_receiver_address) 
         .store_slice(response_address) 
         .store_coins(0) 
         .store_uint(0, 1)
@@ -67,7 +67,7 @@ global slice lstton_receiver_address;
     int msg_value = send_all_fee ? 0 : PROXYLST::TRANSFER_FEE;
     var msg = begin_cell()
         .store_uint(0x18, 6)
-        .store_slice(lstton_wallet)
+        .store_slice(lst_ton_wallet)
         ;; todo determine msg value for burn notification
         .store_coins(msg_value)
         .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
@@ -83,12 +83,12 @@ global slice lstton_receiver_address;
    
     load_global_data();
 
-    throw_unless(PROXYLST::ERR::WALLET_NOT_SET, lstton_wallet.preload_uint(2) != 0);
+    throw_unless(PROXYLST::ERR::WALLET_NOT_SET, lst_ton_wallet.preload_uint(2) != 0);
 
-    int lstton_amount = in_msg_body~load_coins();
+    int lst_ton_amount = in_msg_body~load_coins();
     slice user_address = in_msg_body~load_msg_addr();
     slice response_address = in_msg_body~load_msg_addr();
-    throw_unless(COMMON::ERR::INVALID_AMOUNT, lstton_amount > 0);
+    throw_unless(COMMON::ERR::INVALID_AMOUNT, lst_ton_amount > 0);
 
     int ton_balance_before_msg = my_ton_balance - msg_value;
     int storage_fee = PROXYLST::MIN_TON_STORAGE - min(ton_balance_before_msg, PROXYLST::MIN_TON_STORAGE);
@@ -103,7 +103,7 @@ global slice lstton_receiver_address;
         + WALLET::MINT_FEE
         + fwd_fee * 2
     );
-    _send_lstton(query_id, lstton_amount, response_address, false);
+    _send_lst_ton(query_id, lst_ton_amount, response_address, false);
 
     int remain_msg_value = msg_value 
         - PROXYLST::TRANSFER_NOTIFICATION_FEE 
@@ -112,7 +112,7 @@ global slice lstton_receiver_address;
         - fwd_fee - fwd_fee;
 
     ;; calculate ton amount
-    int ton_amount = get_ton_amount(lstton_amount, lstton_price);
+    int ton_amount = get_ton_amount(lst_ton_amount, lst_ton_price);
 
     ;; then send notify msg to utonic minter(jetton master)
     var notify_msg_body = begin_cell()
@@ -178,7 +178,7 @@ global slice lstton_receiver_address;
         load_global_data();
         throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         
-        lstton_price = in_msg_body~load_uint(64);
+        lst_ton_price = in_msg_body~load_uint(64);
         save_global_data();
         return ();
     }
@@ -188,42 +188,42 @@ global slice lstton_receiver_address;
         throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         
         slice wallet = in_msg_body~load_msg_addr();
-        lstton_wallet = wallet;
+        lst_ton_wallet = wallet;
         save_global_data();
         return ();
     }
 
-    if (op == PROXYLST::UPDATE_lstton_RECEIVER) {
+    if (op == PROXYLST::UPDATE_lst_ton_RECEIVER) {
         load_global_data();
         throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         
         slice receiver = in_msg_body~load_msg_addr();
-        lstton_receiver_address = receiver;
+        lst_ton_receiver_address = receiver;
         save_global_data();
         return ();
     }
 
-    if (op == PROXYLST::SEND_lstton) {
+    if (op == PROXYLST::SEND_lst_ton) {
         load_global_data();
         throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         int amount = in_msg_body~load_coins();
         slice response_address = in_msg_body~load_msg_addr();
-        _send_lstton(query_id, amount, response_address, true);
+        _send_lst_ton(query_id, amount, response_address, true);
         return ();
     }
 
     throw(0xffff);
 }
 
-(int, int, int, slice, slice, slice, slice) get_proxy_lstton_data() method_id {
+(int, int, int, slice, slice, slice, slice) get_proxy_lst_ton_data() method_id {
     load_global_data();
     return (
-        lstton_price,
+        lst_ton_price,
         proxy_type,
         proxy_id,
         utonic_minter_address,
         admin_address,
-        lstton_wallet,
-        lstton_receiver_address
+        lst_ton_wallet,
+        lst_ton_receiver_address
     );
 }

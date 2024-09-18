@@ -3,32 +3,32 @@
 (int, int, int, slice, slice, slice, slice) load_data() inline {
   slice ds = get_data().begin_parse();
   return (
-      ds~load_uint(64), ;; lstton_price
       ds~load_uint(32), ;; proxy_type
       ds~load_uint(32), ;; proxy_id
+      ds~load_uint(64), ;; lst_ton_price
       ds~load_msg_addr(), ;; jetton_master_address
       ds~load_msg_addr(), ;; admin_address
-      ds~load_msg_addr(), ;; lstton_wallet
-      ds~load_msg_addr() ;; lstton_receiver_address
+      ds~load_msg_addr(), ;; lst_ton_wallet
+      ds~load_msg_addr() ;; lst_ton_receiver_address
   );
 }
 
 () save_data(
-    int lstton_price,
     int proxy_type,
     int proxy_id,
+    int lst_ton_price,
     slice jetton_master_address,
     slice admin_address, 
-    slice lstton_wallet, 
-    slice lstton_receiver_address) impure inline {
+    slice lst_ton_wallet, 
+    slice lst_ton_receiver_address) impure inline {
   set_data(begin_cell()
-      .store_uint(lstton_price, 64)
       .store_uint(proxy_type, 32)
       .store_uint(proxy_id, 32)
+      .store_uint(lst_ton_price, 64)
       .store_slice(jetton_master_address)
       .store_slice(admin_address)
-      .store_slice(lstton_wallet)
-      .store_slice(lstton_receiver_address)
+      .store_slice(lst_ton_wallet)
+      .store_slice(lst_ton_receiver_address)
       .end_cell()
     );
 }
