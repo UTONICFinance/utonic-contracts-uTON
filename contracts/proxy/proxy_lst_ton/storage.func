@@ -1,34 +1,61 @@
 #include "../../common/params.func";
 
 (int, int, int, slice, slice, slice, slice) load_data() inline {
+  
   slice ds = get_data().begin_parse();
+  slice data_cell = ds~load_ref().begin_parse();
+  int lc_proxy_type = data_cell~load_uint(32);
+  int lc_proxy_id = data_cell~load_uint(32);
+  int lc_lst_ton_price = data_cell~load_uint(64);
+
+  slice auth_address_cell = ds~load_ref().begin_parse();
+  slice lc_utonic_minter = auth_address_cell~load_msg_addr();
+  slice lc_admin_address = auth_address_cell~load_msg_addr();
+
+  slice receiver_cell = ds~load_ref().begin_parse();
+  slice lc_lst_ton_wallet = receiver_cell~load_msg_addr();
+  slice lc_lst_ton_receiver_address = receiver_cell~load_msg_addr();
+
   return (
-      ds~load_uint(32), ;; proxy_type
-      ds~load_uint(32), ;; proxy_id
-      ds~load_uint(64), ;; lst_ton_price
-      ds~load_msg_addr(), ;; jetton_master_address
-      ds~load_msg_addr(), ;; admin_address
-      ds~load_msg_addr(), ;; lst_ton_wallet
-      ds~load_msg_addr() ;; lst_ton_receiver_address
+    lc_proxy_type,
+    lc_proxy_id,
+    lc_lst_ton_price,
+    lc_utonic_minter,
+    lc_admin_address,
+    lc_lst_ton_wallet,
+    lc_lst_ton_receiver_address
   );
 }
 
 () save_data(
-    int proxy_type,
-    int proxy_id,
-    int lst_ton_price,
-    slice jetton_master_address,
-    slice admin_address, 
-    slice lst_ton_wallet, 
-    slice lst_ton_receiver_address) impure inline {
+    int lc_proxy_type,
+    int lc_proxy_id,
+    int lc_lst_ton_price,
+    slice lc_utonic_minter,
+    slice lc_admin_address, 
+    slice lc_lst_ton_wallet, 
+    slice lc_lst_ton_receiver_address) impure inline {
+  
+  cell data_cell = begin_cell()
+    .store_uint(lc_proxy_type, 32)
+    .store_uint(lc_proxy_id, 32)
+    .store_uint(lc_lst_ton_price, 64)
+    .end_cell();
+
+  cell auth_address_cell = begin_cell()
+    .store_slice(lc_utonic_minter)
+    .store_slice(lc_admin_address)
+    .end_cell();
+  
+  cell receiver_cell = begin_cell()
+    .store_slice(lc_lst_ton_wallet)
+    .store_slice(lc_lst_ton_receiver_address)
+    .end_cell();
+  
   set_data(begin_cell()
-      .store_uint(proxy_type, 32)
-      .store_uint(proxy_id, 32)
-      .store_uint(lst_ton_price, 64)
-      .store_slice(jetton_master_address)
-      .store_slice(admin_address)
-      .store_slice(lst_ton_wallet)
-      .store_slice(lst_ton_receiver_address)
+      .store_ref(data_cell)
+      .store_ref(auth_address_cell)
+      .store_ref(receiver_cell)
       .end_cell()
     );
 }
