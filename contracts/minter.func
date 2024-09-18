@@ -21,7 +21,6 @@ global int total_supply;
 global int last_price_day;
 global int last_price;
 global int price_inc;
-global int debt_ton;
 global slice admin_address;
 global cell proxy_whitelist;
 global cell content;
@@ -32,7 +31,6 @@ global cell jetton_wallet_code;
     last_price_day,
     last_price,
     price_inc,
-    debt_ton,
     admin_address,
     proxy_whitelist,
     content,
@@ -45,7 +43,6 @@ global cell jetton_wallet_code;
         last_price_day,
         last_price,
         price_inc,
-        debt_ton,
         admin_address,
         proxy_whitelist,
         content,
@@ -308,9 +305,9 @@ global cell jetton_wallet_code;
 
 }
 
-(int, int, int, int, int, slice, cell, cell, cell) get_minter_data() method_id {
+(int, int, int, int, slice, cell, cell, cell) get_minter_data() method_id {
     load_global_data();
-    return (total_supply, last_price_day, last_price, price_inc, debt_ton, admin_address, proxy_whitelist, content, jetton_wallet_code);
+    return (total_supply, last_price_day, last_price, price_inc, admin_address, proxy_whitelist, content, jetton_wallet_code);
 }
 
 slice get_wallet_address(slice owner_address) method_id {
