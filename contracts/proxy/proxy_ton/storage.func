@@ -1,34 +1,56 @@
 #include "../../common/params.func";
 
 (int, int, int, slice, slice, slice, cell) load_data() inline {
+  
   slice ds = get_data().begin_parse();
+  slice data_cell_slice = ds~load_ref().begin_parse();
+  int lc_proxy_type = data_cell_slice~load_uint(32);
+  int lc_proxy_id = data_cell_slice~load_uint(32);
+  int lc_debt_ton = data_cell_slice~load_coins(); 
+  
+  slice address_cell_slice = ds~load_ref().begin_parse();
+  slice lc_utonic_minter_address = address_cell_slice~load_msg_addr();
+  slice lc_admin_address = address_cell_slice~load_msg_addr();
+  slice lc_ton_receiver_address = address_cell_slice~load_msg_addr();
+  
+  cell lc_withdraw_code = ds~load_ref();
+  
   return (
-      ds~load_uint(32), ;; price_type
-      ds~load_uint(32), ;; proxy_id
-      ds~load_uint(32), ;; debt_ton
-      ds~load_msg_addr(), ;; jetton_master_address
-      ds~load_msg_addr(), ;; admin_address
-      ds~load_msg_addr(), ;; ton_receiver_address
-      ds~load_ref() ;; withdraw_code
+      lc_proxy_type, ;; proxy_type
+      lc_proxy_id, ;; proxy_id
+      lc_debt_ton, ;; debt_ton
+      lc_utonic_minter_address, ;; jetton_master_address
+      lc_admin_address, ;; admin_address
+      lc_ton_receiver_address, ;; ton_receiver_address
+      lc_withdraw_code ;; withdraw_code
   );
 }
 
 () save_data(
-    int proxy_type,
-    int proxy_id,
-    int debt_ton,
-    slice jetton_master_address,
-    slice admin_address, 
-    slice ton_receiver_address,
-    cell withdraw_code) impure inline {
+    int lc_proxy_type,
+    int lc_proxy_id,
+    int lc_debt_ton,
+    slice lc_utonic_minter,
+    slice lc_admin_address, 
+    slice lc_ton_receiver_address,
+    cell lc_withdraw_code) impure inline {
+    
+  cell data_cell = begin_cell()
+      .store_uint(lc_proxy_type, 32)
+      .store_uint(lc_proxy_id, 32)
+      .store_coins(lc_debt_ton)
+      .end_cell();
+  
+  cell address_cell = begin_cell()
+      .store_slice(lc_utonic_minter)
+      .store_slice(lc_admin_address)
+      .store_slice(lc_ton_receiver_address)
+      .end_cell();
+  
   set_data(begin_cell()
-      .store_uint(proxy_type, 32)
-      .store_uint(proxy_id, 32)
-      .store_coins(debt_ton)
-      .store_slice(jetton_master_address)
-      .store_slice(admin_address)
-      .store_slice(ton_receiver_address)
-      .store_ref(withdraw_code)
+      .store_ref(data_cell)
+      .store_ref(address_cell)
+      .store_ref(lc_withdraw_code)
       .end_cell()
     );
 }
