@@ -1,12 +1,13 @@
 #include "../../common/params.func";
 
-(int, int, int, slice, slice, slice, slice) load_data() inline {
+(int, int, int, int, slice, slice, slice, slice) load_data() inline {
   
   slice ds = get_data().begin_parse();
   slice data_cell = ds~load_ref().begin_parse();
   int lc_proxy_type = data_cell~load_uint(32);
   int lc_proxy_id = data_cell~load_uint(32);
   int lc_lst_ton_price = data_cell~load_uint(64);
+  int lc_capacity = data_cell~load_coins();
 
   slice auth_address_cell = ds~load_ref().begin_parse();
   slice lc_utonic_minter = auth_address_cell~load_msg_addr();
@@ -20,6 +21,7 @@
     lc_proxy_type,
     lc_proxy_id,
     lc_lst_ton_price,
+    lc_capacity,
     lc_utonic_minter,
     lc_admin_address,
     lc_lst_ton_wallet,
@@ -31,6 +33,7 @@
     int lc_proxy_type,
     int lc_proxy_id,
     int lc_lst_ton_price,
+    int lc_capacity,
     slice lc_utonic_minter,
     slice lc_admin_address, 
     slice lc_lst_ton_wallet, 
@@ -40,6 +43,7 @@
     .store_uint(lc_proxy_type, 32)
     .store_uint(lc_proxy_id, 32)
     .store_uint(lc_lst_ton_price, 64)
+    .store_coins(lc_capacity)
     .end_cell();
 
   cell auth_address_cell = begin_cell()

@@ -1,6 +1,6 @@
 import { Contract, ContractProvider, Sender, Address, Cell, contractAddress, beginCell, Slice, TupleItemSlice, TupleItemInt, Dictionary } from "@ton/core";
 import { COMMON_OP_STAKE } from "../../common/opcodes";
-import { PROXYLST_UPDATE_PROXYLST_WALLET } from "./opcodes";
+import { PROXYLST_UPDATE_CAPACITY, PROXYLST_UPDATE_PROXYLST_WALLET } from "./opcodes";
 
 export default class ProxyLSTTon implements Contract {
 
@@ -8,6 +8,7 @@ export default class ProxyLSTTon implements Contract {
     proxyType: number,
     proxyId: number,
     lstTonPrice: bigint,
+    capacity: bigint,
     utonicMinterAddress: Address,
     adminAddress: Address,
     lstTonReceiver: Address
@@ -16,6 +17,7 @@ export default class ProxyLSTTon implements Contract {
       .storeUint(proxyType, 32)
       .storeUint(proxyId, 32)
       .storeUint(lstTonPrice, 64)
+      .storeCoins(capacity)
     .endCell();
     const authCell = beginCell()
       .storeAddress(utonicMinterAddress)
@@ -23,7 +25,7 @@ export default class ProxyLSTTon implements Contract {
     .endCell();
     const receiverCell = beginCell()
       // tmp address, will be replaced with proxyLSTTon wallet by admin
-      .storeAddress(lstTonReceiver)
+      .storeUint(0, 2)
       .storeAddress(lstTonReceiver)
     .endCell();
 
@@ -65,6 +67,41 @@ export default class ProxyLSTTon implements Contract {
       value,
       body: messageBody
     });
+  }
+
+  async sendUpdateCapacity(provider: ContractProvider, via: Sender, queryId: number, capacity: bigint, value: string) {
+    const messageBody = beginCell()
+      .storeUint(PROXYLST_UPDATE_CAPACITY, 32) // op 
+      .storeUint(queryId, 64) // query id
+      .storeCoins(capacity)
+      .endCell();
+    await provider.internal(via, {
+      value,
+      body: messageBody
+    });
+  }
+
+
+  async getProxyLSTTonData(provider: ContractProvider) {
+    const { stack } = await provider.get("get_proxy_lst_ton_data", []);
+    const proxyType = stack.readBigNumber();
+    const proxyId = stack.readBigNumber();
+    const lstTonPrice = stack.readBigNumber();
+    const capacity = stack.readBigNumber();
+    const utonicMinterAddress = stack.readAddress();
+    const adminAddress = stack.readAddress();
+    const lstTonWallet = stack.readAddressOpt();
+    const lstTonReceiver = stack.readAddress();
+    return {
+      proxyType,
+      proxyId,
+      lstTonPrice,
+      capacity,
+      utonicMinterAddress,
+      adminAddress,
+      lstTonWallet,
+      lstTonReceiver,
+    };
   }
 
 }

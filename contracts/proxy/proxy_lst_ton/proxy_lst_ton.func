@@ -20,6 +20,7 @@
 global int proxy_type;
 global int proxy_id;
 global int lst_ton_price;
+global int capacity;
 global slice utonic_minter_address;
 global slice admin_address;
 global slice lst_ton_wallet;
@@ -30,6 +31,7 @@ global slice lst_ton_receiver_address;
         proxy_type,
         proxy_id,
         lst_ton_price,
+        capacity,
         utonic_minter_address,
         admin_address,
         lst_ton_wallet,
@@ -42,6 +44,7 @@ global slice lst_ton_receiver_address;
         proxy_type,
         proxy_id,
         lst_ton_price,
+        capacity,
         utonic_minter_address,
         admin_address,
         lst_ton_wallet,
@@ -86,6 +89,9 @@ global slice lst_ton_receiver_address;
     throw_unless(COMMON::ERR::WRONG_CALLER, equal_slices(lst_ton_wallet, sender_address));
 
     int lst_ton_amount = in_msg_body~load_coins();
+    throw_unless(PROXYLST::ERR::CAPACITY_NOT_ENOUGH, capacity >= lst_ton_amount);
+    capacity -= lst_ton_amount;
+    save_global_data();
     slice user_address = in_msg_body~load_msg_addr();
     slice response_address = in_msg_body~load_msg_addr();
     throw_unless(COMMON::ERR::INVALID_AMOUNT, lst_ton_amount > 0);
@@ -212,15 +218,24 @@ global slice lst_ton_receiver_address;
         return ();
     }
 
+    if (op == PROXYLST::UPDATE_CAPACITY) {
+        load_global_data();
+        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        capacity = in_msg_body~load_coins();
+        save_global_data();
+        return ();
+    }
+
     throw(0xffff);
 }
 
-(int, int, int, slice, slice, slice, slice) get_proxy_lst_ton_data() method_id {
+(int, int, int, int, slice, slice, slice, slice) get_proxy_lst_ton_data() method_id {
     load_global_data();
     return (
         proxy_type,
         proxy_id,
         lst_ton_price,
+        capacity,
         utonic_minter_address,
         admin_address,
         lst_ton_wallet,
