@@ -27,6 +27,7 @@ export async function run() {
         1,
         1,
         1000000000n,
+        0n,
         minterAddress,
         wallet.address,
         wallet.address
