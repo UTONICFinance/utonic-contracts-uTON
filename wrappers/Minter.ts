@@ -94,12 +94,12 @@ export default class Minter implements Contract {
     });
   }
 
-  async sendClearProxyWhitelist(provider: ContractProvider, via: Sender, queryId: number, proxyId: number, value: string) {
+  async sendClearProxyWhitelist(provider: ContractProvider, via: Sender, queryId: number, proxyId: number, proxyType: number, value: string) {
     const messageBody = beginCell()
       .storeUint(MINTER_OP_UPDATE_PROXY_WHITELIST, 32) // op 
       .storeUint(queryId, 64) // query id
       .storeUint(proxyId, 32)
-      .storeUint(0, 32)
+      .storeUint(proxyType, 32)
       .storeUint(0, 2)
       .endCell();
     

@@ -196,10 +196,8 @@ global cell jetton_wallet_code;
     int proxy_type = in_msg_body~load_uint(32);
     proxy_whitelist~udict_delete?(32, proxy_id);
     slice address = in_msg_body~load_msg_addr();
-    ;;if (address.preload_uint(2) != 0) {
-        slice address_type = begin_cell().store_slice(address).store_uint(proxy_type, 32).end_cell().begin_parse();
-        proxy_whitelist~udict_set(32, proxy_id, address_type);
-    ;;}
+    slice address_type = begin_cell().store_slice(address).store_uint(proxy_type, 32).end_cell().begin_parse();
+    proxy_whitelist~udict_set(32, proxy_id, address_type);
     save_global_data();
 }
 
@@ -290,12 +288,14 @@ global cell jetton_wallet_code;
 
     if (op == MINTER::OP::UPDATE_CODE_AND_DATA) {
         throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
-        cell code = in_msg_body~load_ref();
-        cell data = in_msg_body~load_ref();
-        ifnot (code.cell_null?()) {
+        int has_code = in_msg_body~load_uint(1);
+        if (has_code) {
+            cell code = in_msg_body~load_ref();
             set_code(code);
         }
-        ifnot (data.cell_null?()) {
+        int has_data = in_msg_body~load_uint(1);
+        if (has_data) {
+            cell data = in_msg_body~load_ref();
             set_data(data);
         }
         return ();

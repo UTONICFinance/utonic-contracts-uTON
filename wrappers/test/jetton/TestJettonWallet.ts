@@ -25,17 +25,9 @@ export default class TestJettonWallet implements Contract {
     });
   }
 
-  async getWalletAddress(provider: ContractProvider, userAddress: Address) {
-    const { stack } = await provider.get("get_wallet_address", [
-        {
-          type: 'slice',
-          cell: 
-              beginCell()
-                  .storeAddress(userAddress)
-              .endCell()
-      } as TupleItemSlice
-    ]);
-    return stack.readAddress();
+  async getWalletData(provider: ContractProvider) {
+    const { stack } = await provider.get("get_wallet_data", []);
+    return { balance: stack.readBigNumber() };
   }
 
 }
