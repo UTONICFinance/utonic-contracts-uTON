@@ -94,13 +94,13 @@ global cell jetton_wallet_code;
 
 () proxy_stake(int query_id, slice sender_address, int msg_value, slice in_msg_body) impure {
    
-    throw_unless(COMMON::ERR::INSUFFICIENT_VALUE, msg_value > WALLET::MINT_FEE + MINTER::MINT_FEE);
+    throw_unless(COMMON::ERR::INSUFFICIENT_VALUE, msg_value >= WALLET::MINT_FEE + MINTER::MINT_FEE);
 
     int proxy_type = in_msg_body~load_uint(32);
     int proxy_id = in_msg_body~load_uint(32);
 
     load_global_data();
-    throw_if(MINTER::ERR::EMPTY_PROXY_WHITELIST, proxy_whitelist.dict_empty?());
+    ;; throw_if(MINTER::ERR::EMPTY_PROXY_WHITELIST, proxy_whitelist.dict_empty?());
 
     (slice address_type, int has_address) = proxy_whitelist.udict_get?(32, proxy_id);
     throw_unless(MINTER::ERR::INVALID_PROXY_ID, has_address);
@@ -194,12 +194,12 @@ global cell jetton_wallet_code;
     throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
     int proxy_id = in_msg_body~load_uint(32);
     int proxy_type = in_msg_body~load_uint(32);
-    proxy_whitelist.udict_delete?(32, proxy_id);
+    proxy_whitelist~udict_delete?(32, proxy_id);
     slice address = in_msg_body~load_msg_addr();
-    if (address.preload_uint(2) != 0) {
+    ;;if (address.preload_uint(2) != 0) {
         slice address_type = begin_cell().store_slice(address).store_uint(proxy_type, 32).end_cell().begin_parse();
-        proxy_whitelist.udict_set(32, proxy_id, address_type);
-    }
+        proxy_whitelist~udict_set(32, proxy_id, address_type);
+    ;;}
     save_global_data();
 }
 
