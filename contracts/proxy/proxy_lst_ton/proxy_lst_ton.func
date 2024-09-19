@@ -54,7 +54,7 @@ global slice lst_ton_receiver_address;
 }
 
 () _send_lst_ton(int query_id, int amount, slice response_address, int send_all_fee) impure {
-    throw_unless(PROXYLST::ERR::LST_TON_RECEIVER_NOT_SET, lst_ton_receiver_address.preload_uint(2) != 0);
+
     var msg_body = begin_cell()
         .store_uint(JETTON::OP::TRANSFER, 32)
         .store_uint(query_id, 64) 
@@ -83,7 +83,7 @@ global slice lst_ton_receiver_address;
    
     load_global_data();
 
-    throw_unless(PROXYLST::ERR::WALLET_NOT_SET, lst_ton_wallet.preload_uint(2) != 0);
+    throw_unless(COMMON::ERR::WRONG_CALLER, equal_slices(lst_ton_wallet, sender_address));
 
     int lst_ton_amount = in_msg_body~load_coins();
     slice user_address = in_msg_body~load_msg_addr();
@@ -218,9 +218,9 @@ global slice lst_ton_receiver_address;
 (int, int, int, slice, slice, slice, slice) get_proxy_lst_ton_data() method_id {
     load_global_data();
     return (
-        lst_ton_price,
         proxy_type,
         proxy_id,
+        lst_ton_price,
         utonic_minter_address,
         admin_address,
         lst_ton_wallet,
