@@ -67,7 +67,7 @@ global cell withdraw_code;
    
     load_global_data();
 
-    throw_unless(COMMON::ERR::TON_RECEIVER_NOT_SET, ton_receiver_address.preload_uint(2) != 0);
+    ;; throw_unless(COMMON::ERR::TON_RECEIVER_NOT_SET, ton_receiver_address.preload_uint(2) != 0);
 
     int ton_balance_before_msg = my_ton_balance - msg_value;
     int storage_fee = PROXY_TON::MIN_TON_STORAGE - min(ton_balance_before_msg, PROXY_TON::MIN_TON_STORAGE);
@@ -78,7 +78,7 @@ global cell withdraw_code;
         - MINTER::MINT_FEE 
         - WALLET::MINT_FEE;
     throw_unless(COMMON::ERR::INVALID_TON_AMOUNT, ton_amount > 0);
-    throw_unless(COMMON::ERR::TON_RECEIVER_NOT_SET, ton_receiver_address.preload_uint(2) != 0);
+    ;; throw_unless(COMMON::ERR::TON_RECEIVER_NOT_SET, ton_receiver_address.preload_uint(2) != 0);
     _send_ton(query_id, ton_amount, ton_receiver_address, false);
     
     slice user_address = in_msg_body~load_msg_addr();
