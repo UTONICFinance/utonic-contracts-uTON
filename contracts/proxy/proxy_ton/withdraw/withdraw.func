@@ -123,7 +123,7 @@ global slice master_address;
     load_global_data();
     
     int op = in_msg_body~load_uint(32);
-    throw_unless(COMMON::ERR::INVALID_BOUNCE_MSG_CODE, op == PROXY_TON::OP::WITHDRAW_NOTIFICATION);
+    throw_unless(WITHDRAW::ERR::BOUNCE_ERR_INVALID_OP, op == PROXY_TON::OP::WITHDRAW_NOTIFICATION);
     finished = 0;
     save_global_data();
 }
