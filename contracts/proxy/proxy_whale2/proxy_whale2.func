@@ -1,0 +1,170 @@
+#include "../../imports/stdlib.fc";
+#include "../../libs/utils.func";
+
+#include "../../common/op.func";
+#include "../../common/params.func";
+#include "../../common/errors.func";
+
+#include "../../standard/op.func";
+
+#include "../../minter/op.func";
+#include "../../minter/params.func";
+#include "../../wallet/params.func";
+
+#include "storage.func";
+#include "params.func";
+#include "op.func";
+
+global int proxy_type;
+global int proxy_id;
+global slice whale_address;
+global slice minter_address;
+global slice uton_receiver_address;
+global slice ton_admin_address;
+global slice ton_receiver_address;
+
+() load_global_data() impure inline {
+    (
+        proxy_type,
+        proxy_id,
+        whale_address,
+        minter_address,
+        uton_receiver_address,
+        ton_admin_address,
+        ton_receiver_address
+    ) = load_data();
+}
+
+() save_global_data() impure inline {
+    save_data(
+        proxy_type,
+        proxy_id,
+        whale_address,
+        minter_address,
+        uton_receiver_address,
+        ton_admin_address,
+        ton_receiver_address
+    );
+}
+
+
+() _send_ton(int query_id, int ton_amount) impure {
+    var msg_to_ton_receiver = begin_cell()
+        .store_uint(0x10, 6)
+        .store_slice(ton_receiver_address)
+        .store_coins(ton_amount)
+        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1);
+        ;; .store_uint(COMMON::OP::STAKE_SAVE, 32)
+        ;; .store_uint(query_id, 64);
+    send_raw_message(msg_to_ton_receiver.end_cell(), 1);
+}
+
+() proxy_stake(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
+   
+    load_global_data();
+
+    ;; throw_unless(COMMON::ERR::TON_RECEIVER_NOT_SET, ton_receiver_address.preload_uint(2) != 0);
+
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    int storage_fee = PROXY_WHALE2::MIN_TON_STORAGE - min(ton_balance_before_msg, PROXY_WHALE2::MIN_TON_STORAGE);
+
+    int ton_amount = msg_value 
+        - PROXY_WHALE2::MINT_FEE
+        - fwd_fee
+        - MINTER::MINT_FEE 
+        - WALLET::MINT_FEE;
+    throw_unless(COMMON::ERR::INVALID_TON_AMOUNT, ton_amount > 0);
+    _send_ton(query_id, ton_amount);
+    
+    slice response_address = in_msg_body~load_msg_addr();
+
+    ;; then send notify msg to utonic minter(jetton master)
+    var notify_msg_body = begin_cell()
+        .store_uint(COMMON::OP::STAKE, 32)
+        .store_uint(query_id, 64)
+        .store_uint(proxy_type, 32)
+        .store_uint(proxy_id, 32)
+        .store_coins(ton_amount)
+        .store_slice(uton_receiver_address)
+        .store_slice(response_address)
+        .end_cell();
+
+    var notify_msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(minter_address)
+        ;; todo determine msg value for burn notification
+        .store_coins(MINTER::MINT_FEE + WALLET::MINT_FEE)
+        .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_ref(notify_msg_body);
+
+    send_raw_message(notify_msg.end_cell(), 1); 
+
+}
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_empty?()) { ;; ignore empty messages
+        return ();
+    }
+
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+    if (flags & 1) {
+        ;; ignore bounced msg
+        return ();
+    }
+    slice sender_address = cs~load_msg_addr();
+    cs~load_msg_addr();
+    cs~load_coins();
+    cs~skip_bits(1);
+    cs~load_coins();
+    int fwd_fee = cs~load_coins();
+
+    int op = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+
+    if (op == COMMON::OP::STAKE) {
+        proxy_stake(query_id, in_msg_body, sender_address, my_balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    ;; whale
+    if (op == PROXY_WHALE2::OP::UPDATE_UTON_RECEIVER) {
+        load_global_data();
+        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, whale_address));
+        uton_receiver_address = in_msg_body~load_msg_addr();
+        save_global_data();
+        return ();
+    }
+
+    ;; ton admin
+    if (op == PROXY_WHALE2::OP::UPDATE_TON_RECEIVER) {
+        load_global_data();
+        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, ton_admin_address));
+        ton_receiver_address = in_msg_body~load_msg_addr();
+        save_global_data();
+        return ();
+    }
+
+    if (op == PROXY_WHALE2::OP::UPDATE_TON_ADMIN) {
+        load_global_data();
+        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, ton_admin_address));
+        ton_admin_address = in_msg_body~load_msg_addr();
+        save_global_data();
+        return ();
+    }
+
+    throw(0xffff);
+}
+
+(int, int, slice, slice, slice, slice, slice) get_proxy_whale2_data() method_id {
+    load_global_data();
+    return (
+        proxy_type,
+        proxy_id,
+        whale_address, 
+        minter_address, 
+        uton_receiver_address,
+        ton_admin_address,
+        ton_receiver_address
+    );
+}
