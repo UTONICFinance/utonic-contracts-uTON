@@ -7,7 +7,6 @@
 
 #include "standard/op.func";
 
-#include "wallet/op.func";
 #include "wallet/params.func";
 
 #include "minter/op.func";
@@ -72,11 +71,12 @@ global cell jetton_wallet_code;
 () mint_tokens(int query_id, slice user_address, slice response_address, int uton_amount, int msg_value) impure {
     ;; then mint token for user
     var master_msg = begin_cell()
-        .store_uint(WALLET::OP::MINT, 32)
+        .store_uint(JETTON::OP::INTERNAL_TRANSFER, 32)
         .store_uint(query_id, 64) 
         .store_coins(uton_amount)
+        .store_slice(my_address())
         .store_slice(response_address) 
-        ;; .store_coins(0) 
+        .store_coins(0) 
         .store_uint(0, 1)
     .end_cell();
 
