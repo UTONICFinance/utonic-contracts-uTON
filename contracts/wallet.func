@@ -265,7 +265,17 @@ global cell jetton_wallet_code;
     throw(0xffff);
 }
 
-(int, int, slice, slice, cell) get_wallet_data() method_id {
+(int, slice, slice, cell) get_wallet_data() method_id {
+    load_global_data();
+    return (
+        balance, 
+        owner_address, 
+        jetton_master_address, 
+        jetton_wallet_code
+    );
+}
+
+(int, int, slice, slice, cell) get_complete_wallet_data() method_id {
     load_global_data();
     return (
         balance, 

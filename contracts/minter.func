@@ -310,6 +310,10 @@ global cell jetton_wallet_code;
     return (total_supply, last_price_day, last_price, price_inc, admin_address, proxy_whitelist, content, jetton_wallet_code);
 }
 
+(int, int, slice, cell, cell) get_jetton_data() method_id {
+    return (total_supply, -1, admin_address, content, jetton_wallet_code);
+}
+
 slice get_wallet_address(slice owner_address) method_id {
     load_global_data();
     return calculate_user_jetton_wallet_address(owner_address, my_address(), jetton_wallet_code);
