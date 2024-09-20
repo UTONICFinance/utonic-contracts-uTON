@@ -2,6 +2,7 @@ import { Contract, ContractProvider, Sender, Address, Cell, contractAddress, beg
 import { MINTER_OP_UPDATE_CODE_AND_DATA, MINTER_OP_UPDATE_PRICE, MINTER_OP_UPDATE_PRICE_INC, MINTER_OP_UPDATE_PROXY_WHITELIST } from "./minter/opcodes"
 import { encodeOffChainContent } from "../libs/cells";
 import { COMMON_OP_STAKE } from "./common/opcodes";
+import { MINTER_OP_UPDATE_CONTENT } from "./constants/opcodes";
 
 export default class Minter implements Contract {
 
@@ -125,12 +126,11 @@ export default class Minter implements Contract {
     });
   }
 
-  async sendUpdateCode(provider: ContractProvider, via: Sender, queryId: number, code: Cell, value: string) {
+  async sendUpdateContent(provider: ContractProvider, via: Sender, queryId: number, content: string, value: string) {
     const messageBody = beginCell()
-      .storeUint(MINTER_OP_UPDATE_CODE_AND_DATA, 32) // op 
+      .storeUint(MINTER_OP_UPDATE_CONTENT, 32) // op 
       .storeUint(queryId, 64) // query id
-      .storeRef(code)
-      .storeRef(Cell.EMPTY)
+      .storeRef(encodeOffChainContent(content))
       .endCell();
     
     await provider.internal(via, {
