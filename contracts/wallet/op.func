@@ -1,2 +1,0 @@
-const WALLET::OP::CODE_BASE = 0x3000;
-const WALLET::OP::MINT = WALLET::OP::CODE_BASE + 1;

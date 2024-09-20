@@ -8,7 +8,6 @@
 #include "minter/op.func";
 #include "minter/params.func";
 
-#include "wallet/op.func";
 #include "wallet/params.func";
 #include "wallet/storage.func";
 #include "wallet/errors.func";
@@ -39,7 +38,6 @@ global cell jetton_wallet_code;
     );
 }
 
-
 () send_tokens (slice in_msg_body, slice sender_address, int msg_value, int fwd_fee) impure {
     int query_id = in_msg_body~load_uint(64);
     int uton_amount = in_msg_body~load_coins();
@@ -48,7 +46,7 @@ global cell jetton_wallet_code;
 
     load_global_data();
     balance -= uton_amount;
-    throw_unless(COMMON::ERR::WRONG_CALLER, equal_slices(owner_address, sender_address));
+    throw_unless(WALLET::ERR::SENDER_NOT_OWNER, equal_slices(owner_address, sender_address));
     throw_unless(WALLET::ERR::BALANCE_NOT_ENOUGH, balance >= 0);
 
     cell state_init = calculate_jetton_wallet_state_init(to_owner_address, jetton_master_address, jetton_wallet_code);
@@ -56,6 +54,8 @@ global cell jetton_wallet_code;
     slice response_address = in_msg_body~load_msg_addr();
     cell custom_payload = in_msg_body~load_dict();
     int forward_ton_amount = in_msg_body~load_coins();
+    throw_unless(WALLET::ERR::MSG_BODY_PARTIAL_LOSS, slice_bits(in_msg_body) >= 1);
+    
     slice either_forward_payload = in_msg_body;
     var msg = begin_cell()
         .store_uint(0x18, 6)
@@ -76,7 +76,7 @@ global cell jetton_wallet_code;
     msg = msg.store_ref(msg_body);
     int fwd_count = forward_ton_amount ? 2 : 1;
     throw_unless(
-        COMMON::ERR::INSUFFICIENT_VALUE, 
+        WALLET::ERR::INSUFFICIENT_VALUE, 
         msg_value > forward_ton_amount 
             + fwd_count * fwd_fee 
             + WALLET::SEND_FEE
@@ -89,37 +89,6 @@ global cell jetton_wallet_code;
     send_raw_message(msg.end_cell(), 64); ;; revert on errors
 }
 
-() mint_tokens (slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
-    load_global_data();
-    
-    int query_id = in_msg_body~load_uint(64);
-    int uton_amount = in_msg_body~load_coins();
-    balance += uton_amount;
-
-    save_global_data();
-
-    slice response_address = in_msg_body~load_msg_addr();
-    throw_unless(
-        COMMON::ERR::WRONG_CALLER, 
-        equal_slices(jetton_master_address, sender_address)
-    );
-
-    int ton_balance_before_msg = my_ton_balance - msg_value;
-    int storage_fee = WALLET::MIN_TON_STORAGE - min(ton_balance_before_msg, WALLET::MIN_TON_STORAGE);
-    msg_value -= (storage_fee + WALLET::MINT_FEE);
-
-    if ((response_address.preload_uint(2) != 0) & (msg_value > 0)) {
-        var msg = begin_cell()
-            .store_uint(0x10, 6) ;; nobounce - int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool src:MsgAddress -> 011000
-            .store_slice(response_address)
-            .store_coins(msg_value)
-            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-            .store_uint(OP::EXCESSES, 32)
-            .store_uint(query_id, 64);
-        send_raw_message(msg.end_cell(), 2);
-    }
-}
-
 () receive_tokens (slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
     load_global_data();
 
@@ -130,8 +99,10 @@ global cell jetton_wallet_code;
     slice from_address = in_msg_body~load_msg_addr();
     slice response_address = in_msg_body~load_msg_addr();
     throw_unless(
-        COMMON::ERR::WRONG_CALLER, 
+        WALLET::ERR::SENDER_NOT_JETTON_MASTER_OR_NOT_WALLET, 
         equal_slices(calculate_user_jetton_wallet_address(from_address, jetton_master_address, jetton_wallet_code), sender_address)
+        |
+        equal_slices(jetton_master_address, sender_address)
     );
     int forward_ton_amount = in_msg_body~load_coins();
 
@@ -180,20 +151,25 @@ global cell jetton_wallet_code;
 
     int query_id = in_msg_body~load_uint(64);
     int uton_amount = in_msg_body~load_coins();
-    int proxy_id = in_msg_body~load_uint(32);
     slice response_address = in_msg_body~load_msg_addr();
-    int fwd_value = in_msg_body~load_coins();
+    cell custom_payload = in_msg_body~load_dict();
+    
+    (slice payload, int has_payload) = custom_payload.udict_get?(8, 0);
+    throw_unless(WALLET::ERR::MSG_BODY_PARTIAL_LOSS, has_payload);
+    
+    int proxy_id = payload~load_uint(32);
+    int fwd_value = payload~load_coins();
     throw_unless(
         WALLET::ERR::INVALID_FWD_FEE,
         fwd_value > 0
     );
-    cell fwd_msg_body = in_msg_body~load_ref();
+    cell fwd_msg_body = payload~load_ref();
     int withdraw_id = withdraw_cnt;
     withdraw_cnt += 1;
     balance -= uton_amount;
 
     throw_unless(
-        COMMON::ERR::WRONG_CALLER, 
+        WALLET::ERR::SENDER_NOT_OWNER, 
         equal_slices(owner_address, sender_address)
     );
     throw_unless(
@@ -205,7 +181,7 @@ global cell jetton_wallet_code;
     int storage_fee = WALLET::MIN_TON_STORAGE - min(ton_balance_before_msg, WALLET::MIN_TON_STORAGE);
 
     throw_unless(
-        COMMON::ERR::INSUFFICIENT_VALUE, 
+        WALLET::ERR::INSUFFICIENT_VALUE, 
         msg_value > storage_fee
             + WALLET::BURN_FEE 
             + fwd_fee 
@@ -244,7 +220,7 @@ global cell jetton_wallet_code;
     in_msg_body~skip_bits(32); ;; 0xFFFFFFFF
     load_global_data();
     int op = in_msg_body~load_uint(32);
-    throw_unless(COMMON::ERR::INVALID_BOUNCE_MSG_CODE, (op == JETTON::OP::INTERNAL_TRANSFER) | (op == JETTON::OP::BURN_NOTIFICATION));
+    throw_unless(WALLET::ERR::BOUNCE_ERR_INVALID_OP, (op == JETTON::OP::INTERNAL_TRANSFER) | (op == JETTON::OP::BURN_NOTIFICATION));
     int query_id = in_msg_body~load_uint(64);
     int uton_amount = in_msg_body~load_coins();
     balance += uton_amount;
@@ -279,11 +255,6 @@ global cell jetton_wallet_code;
 
     if (op == JETTON::OP::INTERNAL_TRANSFER) {
         receive_tokens(in_msg_body, sender_address, my_balance, fwd_fee, msg_value);
-        return ();
-    }
-
-    if (op == WALLET::OP::MINT) {
-        mint_tokens(in_msg_body, sender_address, my_balance, fwd_fee, msg_value);
         return ();
     }
 
