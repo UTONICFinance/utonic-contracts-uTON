@@ -153,10 +153,9 @@ global cell jetton_wallet_code;
     int uton_amount = in_msg_body~load_coins();
     slice response_address = in_msg_body~load_msg_addr();
     cell custom_payload = in_msg_body~load_dict();
-    
-    (slice payload, int has_payload) = custom_payload.udict_get?(8, 0);
+    (cell payload_ref, int has_payload) = custom_payload.udict_get_ref?(32, 0);
     throw_unless(WALLET::ERR::MSG_BODY_PARTIAL_LOSS, has_payload);
-    
+    slice payload = payload_ref.begin_parse();
     int proxy_id = payload~load_uint(32);
     int fwd_value = payload~load_coins();
     throw_unless(
