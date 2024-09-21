@@ -26,7 +26,7 @@ export async function run() {
   const utonic = Minter.createForDeploy(
     minterCode,
     Minter.initData(
-        Math.floor(new Date().getTime() / ONE_DAY),
+        Math.floor(new Date().getTime() / 1000 / ONE_DAY),
         BigInt(PRICE_BASE),
         0n,
         wallet.address,
