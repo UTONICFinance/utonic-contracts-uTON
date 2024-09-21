@@ -5,6 +5,7 @@ import { mnemonicToWalletKey } from "ton-crypto";
 import { TonClient, Cell, WalletContractV4 } from "@ton/ton";
 import Minter from "../wrappers/Minter";
 import { ONE_DAY, PRICE_BASE } from "../wrappers/constants/params";
+import { loadIni } from "../libs/config";
 
 export async function run() {
   // initialize ton rpc client on testnet
@@ -12,7 +13,8 @@ export async function run() {
   const client = new TonClient({ endpoint });
 
   // open wallet v4 (notice the correct wallet version here)
-  const mnemonic = "";
+  const config = loadIni("../config.ini")
+  const mnemonic = config.words;
   const key = await mnemonicToWalletKey(mnemonic.split(" "));
   const wallet = WalletContractV4.create({ publicKey: key.publicKey, workchain: 0 });
 
