@@ -287,6 +287,7 @@ global cell jetton_wallet_code;
     }
 
     if (op == MINTER::OP::UPDATE_CODE_AND_DATA) {
+        load_global_data();
         throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         int has_code = in_msg_body~load_uint(1);
         if (has_code) {
