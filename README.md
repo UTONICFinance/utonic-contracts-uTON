@@ -1,34 +1,32 @@
-# utonic-contracts
+# uTON contracts
 
-### clone the repo
 
-```
-$ git clone git@github.com:UTONICFinance/utonic-contracts.git
-```
+<div align="center">
+    <img width="700px" height="auto" src="docs/images/utonic.png">
+</div>
 
-### dependencies
+Contracts for the uTON Jetton, the native embedded liquid restaking token (LRT) of TON in the UTONIC platform.
+
+
+
+### Licensing
+
+The primary license for uTON contracts is the Business Source License 1.1 (BUSL-1.1), see [LICENSE](https://github.com/UTONICFinance/utonic-contracts/blob/main/LICENSE). 
+
+
+### Quickstart
+
+Install dependencies
 
 ```
 $ cd utonic-contracts
 $ npm install
 ```
 
-### compile
-
-To compile minter
+Compile the *minter*, *wallet* and *withdraw* contracts.
 
 ```
 $ npm run compileminter
-```
-
-To compile wallet
-
-```
 $ npm run compilewallet
-```
-
-To compile withdraw
-
-```
 $ npm run compilewithdraw
 ```
