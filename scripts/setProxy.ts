@@ -31,8 +31,8 @@ export async function run() {
 
   const proxyAddressStr = config.proxy;
   const proxyAddress = Address.parse(proxyAddressStr);
-  const proxyId = config.proxy_id;
-  const proxyType = config.proxy_type;
+  const proxyId = Number(config.proxy_id);
+  const proxyType = Number(config.proxy_type);
   // send the increment transaction
 
   await minterContract.sendSetProxyWhitelist(walletSender, 1, proxyId, proxyType, proxyAddress, "0.02");
