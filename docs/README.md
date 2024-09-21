@@ -10,6 +10,7 @@ Key features:
 
 1. When Proxy mints uTON, it is valued in TON, and the Proxy internally manages assets, such as LST TON, relative to the price of TON.
 2. uTON Minter manages the uTON price of TON. It can be modified by the admin account.
+3. When users withdraw uTON, they always receive native TON. That is, if users enter with other assets, such as stTON stake, they will withdraw TON too.
 
 
 ### The uTON Jetton
