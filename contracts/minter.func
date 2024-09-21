@@ -311,6 +311,7 @@ global cell jetton_wallet_code;
 }
 
 (int, int, slice, cell, cell) get_jetton_data() method_id {
+    load_global_data();
     return (total_supply, -1, admin_address, content, jetton_wallet_code);
 }
 
