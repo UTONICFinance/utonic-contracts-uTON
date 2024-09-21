@@ -4,14 +4,16 @@ import { TonClient, WalletContractV4, Address } from "@ton/ton";
 import Minter from "../wrappers/Minter"; // this is the interface class we just implemented
 import ProxyLSTTon from "../wrappers/proxy/proxyLSTTon/ProxyLSTTon";
 import TestMinter from "../wrappers/test/jetton/TestMinter";
+import { loadIni } from "../libs/config";
 
 export async function run() {
+  const config = loadIni("config.ini");
   // initialize ton rpc client on testnet
-  const endpoint = await getHttpEndpoint({ network: "testnet" });
+  const endpoint = await getHttpEndpoint({ network: config.network });
   const client = new TonClient({ endpoint });
 
   // open wallet v4 (notice the correct wallet version here)
-  const mnemonic = ""; // your 24 secret words (replace ... with the rest of the words)
+  const mnemonic = config.words;
   const key = await mnemonicToWalletKey(mnemonic.split(" "));
   const wallet = WalletContractV4.create({ publicKey: key.publicKey, workchain: 0 });
 //   if (!await client.isContractDeployed(wallet.address)) {
@@ -23,12 +25,12 @@ export async function run() {
   const walletSender = walletContract.sender(key.secretKey);
   const seqno = await walletContract.getSeqno();
 
-  const proxyLSTTonAddressStr = "";
+  const proxyLSTTonAddressStr = config.proxy_lst_ton;
   const proxyLSTTonAddress = Address.parse(proxyLSTTonAddressStr);
   const proxyLSTTon = new ProxyLSTTon(proxyLSTTonAddress);
   const proxyLSTTonContract = client.open(proxyLSTTon);
 
-  const lstTonMinterAddressStr = "";
+  const lstTonMinterAddressStr = config.lst_ton_minter;
   const lstTonMinterAddress = Address.parse(lstTonMinterAddressStr);
   const lstTonMinter = new TestMinter(lstTonMinterAddress);
   const lstTonMinterContract = client.open(lstTonMinter);

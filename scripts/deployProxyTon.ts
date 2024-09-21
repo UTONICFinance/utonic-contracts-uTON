@@ -23,6 +23,7 @@ export async function run() {
   const withdrawCode = Cell.fromBoc(fs.readFileSync("build/withdraw.cell"))[0];
   const minterAddressString = config.utonic_minter;
   const minterAddress = Address.parse(minterAddressString);
+  const tonReceiverAddress = Address.parse(config.ton_receiver);
   
   const proxyTon = ProxyTon.createForDeploy(
     proxyTonCode,
@@ -32,7 +33,7 @@ export async function run() {
         0n,
         minterAddress,
         wallet.address,
-        wallet.address,
+        tonReceiverAddress,
         withdrawCode
     )
   );

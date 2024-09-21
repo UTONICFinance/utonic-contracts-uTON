@@ -5,20 +5,22 @@ import { mnemonicToWalletKey } from "ton-crypto";
 import { TonClient, Cell, WalletContractV4, Address } from "@ton/ton";
 import { ONE_DAY, PRICE_BASE } from "../wrappers/constants/params";
 import ProxyLSTTon from "../wrappers/proxy/proxyLSTTon/ProxyLSTTon";
+import { loadIni } from "../libs/config";
 
 export async function run() {
+  const config = loadIni("config.ini");
   // initialize ton rpc client on testnet
-  const endpoint = await getHttpEndpoint({ network: "testnet" });
+  const endpoint = await getHttpEndpoint({ network: config.network });
   const client = new TonClient({ endpoint });
 
   // open wallet v4 (notice the correct wallet version here)
-  const mnemonic = "";
+  const mnemonic = config.words;
   const key = await mnemonicToWalletKey(mnemonic.split(" "));
   const wallet = WalletContractV4.create({ publicKey: key.publicKey, workchain: 0 });
 
   // prepare minter's initial code and data cells for deployment
   const proxyLSTTonCode = Cell.fromBoc(fs.readFileSync("build/proxy_lst_ton.cell"))[0];
-  const minterAddressString = "";
+  const minterAddressString = config.utonic_minter;
   const minterAddress = Address.parse(minterAddressString);
   
   const proxyLSTTon = ProxyLSTTon.createForDeploy(
@@ -30,7 +32,7 @@ export async function run() {
         0n,
         minterAddress,
         wallet.address,
-        wallet.address
+        Address.parse(config.lst_ton_receiver)
     )
   );
 
