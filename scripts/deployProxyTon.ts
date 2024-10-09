@@ -32,8 +32,8 @@ export async function run() {
         0,
         0n,
         minterAddress,
-        wallet.address,
         tonReceiverAddress,
+        wallet.address,
         withdrawCode
     )
   );
