@@ -1,5 +1,5 @@
 import { Contract, ContractProvider, Sender, Address, Cell, contractAddress, beginCell, Slice, TupleItemSlice, TupleItemInt, Dictionary } from "@ton/core";
-import { MINTER_OP_UPDATE_CONTENT, MINTER_OP_UPDATE_PRICE, MINTER_OP_UPDATE_PRICE_INC, MINTER_OP_UPDATE_PROXY_WHITELIST } from "./minter/opcodes"
+import { MINTER_OP_UPDATE_ADMIN, MINTER_OP_UPDATE_CODE_AND_DATA, MINTER_OP_UPDATE_CONTENT, MINTER_OP_UPDATE_PRICE, MINTER_OP_UPDATE_PRICE_INC, MINTER_OP_UPDATE_PROXY_WHITELIST } from "./minter/opcodes"
 import { encodeOffChainContent } from "../libs/cells";
 import { COMMON_OP_STAKE } from "./common/opcodes";
 
@@ -22,6 +22,7 @@ export default class Minter implements Contract {
 
     const addressCell = beginCell()
       .storeAddress(adminAddress)
+      .storeAddress(adminAddress) // pendingAdminAddress
       .storeDict(Dictionary.empty())
       .endCell()
     
@@ -73,6 +74,19 @@ export default class Minter implements Contract {
       .storeUint(price, 64)
       .storeUint(priceInc, 64)
       .endCell();
+    await provider.internal(via, {
+      value,
+      body: messageBody
+    });
+  }
+
+  async sendUpdateAdmin(provider: ContractProvider, via: Sender, queryId: number, newAdmin: Address, value: string) {
+    const messageBody = beginCell()
+      .storeUint(MINTER_OP_UPDATE_ADMIN, 32) // op 
+      .storeUint(queryId, 64) // query id
+      .storeAddress(newAdmin)
+      .endCell();
+    
     await provider.internal(via, {
       value,
       body: messageBody
@@ -138,6 +152,47 @@ export default class Minter implements Contract {
     });
   }
 
+  async sendUpdateCodeAndData(provider: ContractProvider, via: Sender, queryId: number, code: Cell | undefined, data: Cell | undefined, value: string) {
+    let messageBody = beginCell()
+      .storeUint(MINTER_OP_UPDATE_CODE_AND_DATA, 32) // op 
+      .storeUint(queryId, 64) // query id
+    if (code) {
+      messageBody = messageBody
+        .storeUint(1, 1)
+        .storeRef(code)
+    } else {
+      messageBody = messageBody
+        .storeUint(0, 1)
+    }
+    if (data) {
+      messageBody = messageBody
+        .storeUint(1, 1)
+        .storeRef(data)
+    } else {
+      messageBody = messageBody
+        .storeUint(0, 1)
+    }
+    
+    await provider.internal(via, {
+      value,
+      body: messageBody.endCell()
+    });
+  }
+
+  // only send to test emtpy minter
+  async sendUpdateTotalSupplyToTestEmptyMinter(provider: ContractProvider, via: Sender, queryId: number, newSupply: bigint, value: string) {
+    const messageBody = beginCell()
+      .storeUint(0x100001, 32) // op 
+      .storeUint(queryId, 64) // query id
+      .storeCoins(newSupply)
+      .endCell();
+    
+    await provider.internal(via, {
+      value,
+      body: messageBody
+    });
+  }
+
   async getMinterData(provider: ContractProvider) {
     const { stack } = await provider.get("get_minter_data", []);
     const totalSupply = stack.readBigNumber();
@@ -145,6 +200,7 @@ export default class Minter implements Contract {
     const lastPrice = stack.readBigNumber();
     const priceInc = stack.readBigNumber();
     const adminAddress = stack.readAddress();
+    const pendingAdminAddress = stack.readAddress();
     const proxy_whitelist = stack.readCellOpt();
     return {
       totalSupply,
@@ -152,6 +208,7 @@ export default class Minter implements Contract {
       lastPrice,
       priceInc,
       adminAddress,
+      pendingAdminAddress,
       proxy_whitelist
     };
   }

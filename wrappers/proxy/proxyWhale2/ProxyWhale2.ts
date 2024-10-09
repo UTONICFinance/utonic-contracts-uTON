@@ -1,40 +1,46 @@
 import { Contract, ContractProvider, Sender, Address, Cell, contractAddress, beginCell, Slice, TupleItemSlice, TupleItemInt, Dictionary } from "@ton/core";
 import { COMMON_OP_STAKE } from "../../common/opcodes";
 
-export default class ProxyTon implements Contract {
+export default class ProxyWhale2 implements Contract {
 
   static initData(
     proxyType: number,
     proxyId: number,
-    debtTon: bigint,
+    whaleAddress: Address,
     utonicMinterAddress: Address,
+    utonReceiver: Address,
     tonReceiver: Address,
-    adminAddress: Address,
-    withdrawCode: Cell
+    tonAdmin: Address,
   ): Cell {
-    const dataCell = beginCell()
+    const baseCell = beginCell()
       .storeUint(proxyType, 32)
       .storeUint(proxyId, 32)
-      .storeCoins(debtTon)
       .endCell()
 
-    const addressCell = beginCell()
+    const baseAddressCell = beginCell()
+      .storeAddress(whaleAddress)
       .storeAddress(utonicMinterAddress)
+      .endCell()
+    
+    const receiverCell = beginCell()
+      .storeAddress(utonReceiver)
       .storeAddress(tonReceiver)
-      .storeDict(Dictionary.empty())
       .endCell()
     
     const adminCell = beginCell()
-      .storeAddress(adminAddress)
-      .storeAddress(adminAddress)
-      .storeDict(Dictionary.empty())
+      .storeAddress(tonAdmin)
+      .storeAddress(tonAdmin)
+      .endCell()
+    
+    const addressCell = beginCell()
+      .storeRef(baseAddressCell)
+      .storeRef(receiverCell)
+      .storeRef(adminCell)
       .endCell()
 
     return beginCell()
-      .storeRef(dataCell)
+      .storeRef(baseCell)
       .storeRef(addressCell)
-      .storeRef(adminCell)
-      .storeRef(withdrawCode)
       .endCell()
   }
 

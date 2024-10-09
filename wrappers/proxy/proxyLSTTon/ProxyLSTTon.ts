@@ -19,8 +19,9 @@ export default class ProxyLSTTon implements Contract {
       .storeUint(lstTonPrice, 64)
       .storeCoins(capacity)
     .endCell();
-    const authCell = beginCell()
-      .storeAddress(utonicMinterAddress)
+    
+    const adminCell = beginCell()
+      .storeAddress(adminAddress)
       .storeAddress(adminAddress)
     .endCell();
     const receiverCell = beginCell()
@@ -29,10 +30,15 @@ export default class ProxyLSTTon implements Contract {
       .storeAddress(lstTonReceiver)
     .endCell();
 
+    const addressCell = beginCell()
+      .storeAddress(utonicMinterAddress)
+      .storeRef(adminCell)
+      .storeRef(receiverCell)
+    .endCell();
+
     return beginCell()
       .storeRef(dataCell)
-      .storeRef(authCell)
-      .storeRef(receiverCell)
+      .storeRef(addressCell)
       .endCell()
   }
 
@@ -90,6 +96,7 @@ export default class ProxyLSTTon implements Contract {
     const capacity = stack.readBigNumber();
     const utonicMinterAddress = stack.readAddress();
     const adminAddress = stack.readAddress();
+    const pendingAdminAddress = stack.readAddress();
     const lstTonWallet = stack.readAddressOpt();
     const lstTonReceiver = stack.readAddress();
     return {
@@ -99,6 +106,7 @@ export default class ProxyLSTTon implements Contract {
       capacity,
       utonicMinterAddress,
       adminAddress,
+      pendingAdminAddress,
       lstTonWallet,
       lstTonReceiver,
     };
