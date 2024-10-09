@@ -240,7 +240,7 @@ global slice lst_ton_receiver_address;
     throw(0xffff);
 }
 
-(int, int, int, int, slice, slice, slice, slice) get_proxy_lst_ton_data() method_id {
+(int, int, int, int, slice, slice, slice, slice, slice) get_proxy_lst_ton_data() method_id {
     load_global_data();
     return (
         proxy_type,
@@ -249,6 +249,7 @@ global slice lst_ton_receiver_address;
         capacity,
         utonic_minter_address,
         admin_address,
+        pending_admin_address,
         lst_ton_wallet,
         lst_ton_receiver_address
     );
