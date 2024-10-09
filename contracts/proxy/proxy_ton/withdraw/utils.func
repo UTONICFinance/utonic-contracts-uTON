@@ -8,7 +8,8 @@ cell pack_withdraw_data(
   int lc_burn_timestamp, 
   int lc_finished, 
   slice lc_owner_address, 
-  slice lc_master_address) inline {
+  slice lc_proxy_address,
+  slice lc_utonic_minter_address) inline {
 
   cell data_cell = begin_cell()
     .store_uint(lc_withdraw_id, 64)
@@ -21,24 +22,26 @@ cell pack_withdraw_data(
   
   cell address_cell = begin_cell()
     .store_slice(lc_owner_address)
-    .store_slice(lc_master_address)
+    .store_slice(lc_proxy_address)
     .end_cell();
 
   return  begin_cell()
     .store_ref(data_cell)
     .store_ref(address_cell)
+    .store_ref(begin_cell().store_slice(lc_utonic_minter_address).end_cell())
   ;; todo
   .end_cell();
 }
 
-cell calculate_withdraw_state_init(int withdraw_id, slice owner_address, slice master_address, cell withdraw_code) inline {
+cell calculate_withdraw_state_init(int withdraw_id, slice owner_address, slice proxy_address, slice utonic_minter_address, cell withdraw_code) inline {
   return begin_cell()
     .store_uint(0, 2)
     .store_dict(withdraw_code)
     .store_dict(pack_withdraw_data(
       withdraw_id, 0, 0, 0, 0, 0,
       owner_address, 
-      master_address
+      proxy_address,
+      utonic_minter_address
     ))
     .store_uint(0, 1)
   .end_cell();
@@ -52,6 +55,6 @@ slice calculate_withdraw_address(cell state_init) inline {
   .end_cell().begin_parse();
 }
 
-slice calculate_user_withdraw_address(slice owner_address, int withdraw_id, slice master_address, cell withdraw_code) inline {
-  return calculate_withdraw_address(calculate_withdraw_state_init(withdraw_id, owner_address, master_address, withdraw_code));
+slice calculate_user_withdraw_address(slice owner_address, int withdraw_id, slice proxy_address, slice utonic_minter_address, cell withdraw_code) inline {
+  return calculate_withdraw_address(calculate_withdraw_state_init(withdraw_id, owner_address, proxy_address, utonic_minter_address, withdraw_code));
 }

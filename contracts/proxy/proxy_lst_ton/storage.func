@@ -1,6 +1,6 @@
 #include "../../common/params.func";
 
-(int, int, int, int, slice, slice, slice, slice) load_data() inline {
+(int, int, int, int, slice, slice, slice, slice, slice) load_data() inline {
   
   slice ds = get_data().begin_parse();
   slice data_cell = ds~load_ref().begin_parse();
@@ -9,11 +9,13 @@
   int lc_lst_ton_price = data_cell~load_uint(64);
   int lc_capacity = data_cell~load_coins();
 
-  slice auth_address_cell = ds~load_ref().begin_parse();
-  slice lc_utonic_minter = auth_address_cell~load_msg_addr();
-  slice lc_admin_address = auth_address_cell~load_msg_addr();
+  slice address_cell = ds~load_ref().begin_parse();
+  slice lc_utonic_minter = address_cell~load_msg_addr();
+  slice admin_cell = address_cell~load_ref().begin_parse();
+  slice lc_admin_address = admin_cell~load_msg_addr();
+  slice lc_pending_admin_address = admin_cell~load_msg_addr();
 
-  slice receiver_cell = ds~load_ref().begin_parse();
+  slice receiver_cell = address_cell~load_ref().begin_parse();
   slice lc_lst_ton_wallet = receiver_cell~load_msg_addr();
   slice lc_lst_ton_receiver_address = receiver_cell~load_msg_addr();
 
@@ -24,6 +26,7 @@
     lc_capacity,
     lc_utonic_minter,
     lc_admin_address,
+    lc_pending_admin_address,
     lc_lst_ton_wallet,
     lc_lst_ton_receiver_address
   );
@@ -36,6 +39,7 @@
     int lc_capacity,
     slice lc_utonic_minter,
     slice lc_admin_address, 
+    slice lc_pending_admin_address,
     slice lc_lst_ton_wallet, 
     slice lc_lst_ton_receiver_address) impure inline {
   
@@ -45,10 +49,10 @@
     .store_uint(lc_lst_ton_price, 64)
     .store_coins(lc_capacity)
     .end_cell();
-
-  cell auth_address_cell = begin_cell()
-    .store_slice(lc_utonic_minter)
+  
+  cell admin_cell = begin_cell()
     .store_slice(lc_admin_address)
+    .store_slice(lc_pending_admin_address)
     .end_cell();
   
   cell receiver_cell = begin_cell()
@@ -56,10 +60,15 @@
     .store_slice(lc_lst_ton_receiver_address)
     .end_cell();
   
+  cell address_cell = begin_cell()
+    .store_slice(lc_utonic_minter)
+    .store_ref(admin_cell)
+    .store_ref(receiver_cell)
+    .end_cell();
+
   set_data(begin_cell()
       .store_ref(data_cell)
-      .store_ref(auth_address_cell)
-      .store_ref(receiver_cell)
+      .store_ref(address_cell)
       .end_cell()
     );
 }

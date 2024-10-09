@@ -1,6 +1,6 @@
 #include "utils.func";
 
-(int, int, int, int, int, int, slice, slice) load_data() inline {
+(int, int, int, int, int, int, slice, slice, slice) load_data() inline {
     
     slice ds = get_data().begin_parse();
 
@@ -15,6 +15,9 @@
     slice address_cell = ds~load_ref().begin_parse();
     slice lc_owner_address = address_cell~load_msg_addr();
     slice lc_master_address = address_cell~load_msg_addr();
+    slice minter_cell = ds~load_ref().begin_parse();
+    slice lc_utonic_minter_address = minter_cell~load_msg_addr();
+    
     return (
         lc_withdraw_id,
         lc_uton_amount,
@@ -23,7 +26,8 @@
         lc_burn_timestamp,
         lc_finished,
         lc_owner_address,
-        lc_master_address
+        lc_master_address,
+        lc_utonic_minter_address
     );
 }
 
@@ -35,7 +39,8 @@
     int lc_burn_timestamp,
     int lc_finished,
     slice lc_owner_address, 
-    slice lc_master_address
+    slice lc_master_address,
+    slice lc_utonic_minter_address
 ) impure inline {
     set_data(pack_withdraw_data(
         lc_withdraw_id,
@@ -45,6 +50,7 @@
         lc_burn_timestamp,
         lc_finished,
         lc_owner_address, 
-        lc_master_address
+        lc_master_address,
+        lc_utonic_minter_address
     ));
 }

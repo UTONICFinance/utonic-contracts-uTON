@@ -3,6 +3,7 @@
 
 #include "common/op.func";
 #include "common/params.func";
+#include "common/utils.func";
 #include "common/errors.func";
 
 #include "standard/op.func";
@@ -21,6 +22,7 @@ global int last_price_day;
 global int last_price;
 global int price_inc;
 global slice admin_address;
+global slice pending_admin_address;
 global cell proxy_whitelist;
 global cell content;
 global cell jetton_wallet_code;
@@ -31,6 +33,7 @@ global cell jetton_wallet_code;
     last_price,
     price_inc,
     admin_address,
+    pending_admin_address,
     proxy_whitelist,
     content,
     jetton_wallet_code) = load_data();
@@ -43,29 +46,10 @@ global cell jetton_wallet_code;
         last_price,
         price_inc,
         admin_address,
+        pending_admin_address,
         proxy_whitelist,
         content,
         jetton_wallet_code);
-}
-
-(int) get_day(int timestamp) inline {
-  return timestamp / COMMON::ONE_DAY;
-}
-
-(int) get_current_day() inline {
-    return get_day(now());
-}
-
-(int) get_price(int last_price_day, int last_price, int price_inc, int current_day) inline {
-  return last_price + (current_day - last_price_day) * price_inc;
-}
-
-(int) get_ton_amount(int uton_amount, int price) inline {
-    return uton_amount * price / COMMON::PRICE_BASE;
-}
-
-(int) get_uton_amount(int ton_amount, int price) inline {
-    return ton_amount * COMMON::PRICE_BASE / price;
 }
 
 () mint_tokens(int query_id, slice user_address, slice response_address, int uton_amount, int msg_value) impure {
@@ -188,6 +172,40 @@ global cell jetton_wallet_code;
     emit_burn_log(from_address, withdraw_id, uton_amount, ton_amount, price, timestamp, proxy_type, proxy_id, proxy_address);
 }
 
+() query_data(int query_id, slice sender_address, int msg_value, slice in_msg_body) impure {
+    
+    throw_unless(COMMON::ERR::INSUFFICIENT_VALUE, msg_value > MINTER::QUERY_FEE);
+
+    load_global_data();
+
+    cell payload = in_msg_body~load_ref();
+
+    int timestamp = now();
+    int today = get_day(timestamp);
+    int price = get_price(last_price_day, last_price, price_inc, today);
+
+    var msg_body = begin_cell()
+        .store_uint(COMMON::OP::QUERY_ACK, 32)
+        .store_uint(query_id, 64)
+        .store_coins(total_supply)
+        .store_uint(price, 64)
+        .store_uint(price_inc, 64)
+        .store_ref(payload)
+    .end_cell();
+
+    int remain_msg_value = msg_value - MINTER::QUERY_FEE;
+
+    var msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(sender_address)
+        ;; todo determine msg value for burn notification
+        .store_coins(remain_msg_value)
+        .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_ref(msg_body);
+    send_raw_message(msg.end_cell(), 0);
+
+}
+
 () update_proxy_whitelist(int query_id, slice sender_address, int msg_value, slice in_msg_body) impure {
 
     load_global_data();
@@ -236,11 +254,18 @@ global cell jetton_wallet_code;
 
     ;; admin operate
 
-    if (op == MINTER::OP::UPDATE_ADMIN) {
+    if (op == COMMON::OP::UPDATE_ADMIN) {
         load_global_data();
         throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
-        slice new_admin_address = in_msg_body~load_msg_addr();
-        admin_address = new_admin_address;
+        pending_admin_address = in_msg_body~load_msg_addr();
+        save_global_data();
+        return ();
+    }
+
+    if (op == COMMON::OP::ACCEPT_ADMIN) {
+        load_global_data();
+        throw_unless(COMMON::ERR::WRONG_CALLER, equal_slices(sender_address, pending_admin_address));
+        admin_address = pending_admin_address;
         save_global_data();
         return ();
     }
@@ -306,9 +331,9 @@ global cell jetton_wallet_code;
 
 }
 
-(int, int, int, int, slice, cell, cell, cell) get_minter_data() method_id {
+(int, int, int, int, slice, slice, cell, cell, cell) get_minter_data() method_id {
     load_global_data();
-    return (total_supply, last_price_day, last_price, price_inc, admin_address, proxy_whitelist, content, jetton_wallet_code);
+    return (total_supply, last_price_day, last_price, price_inc, admin_address, pending_admin_address, proxy_whitelist, content, jetton_wallet_code);
 }
 
 (int, int, slice, cell, cell) get_jetton_data() method_id {

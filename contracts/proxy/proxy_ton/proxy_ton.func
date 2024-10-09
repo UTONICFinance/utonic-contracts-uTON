@@ -23,8 +23,9 @@ global int proxy_type;
 global int proxy_id;
 global int debt_ton;
 global slice utonic_minter_address;
-global slice admin_address;
 global slice ton_receiver_address;
+global slice admin_address;
+global slice pending_admin_address;
 global cell withdraw_code;
 
 () load_global_data() impure inline {
@@ -33,8 +34,9 @@ global cell withdraw_code;
         proxy_id,
         debt_ton,
         utonic_minter_address,
-        admin_address,
         ton_receiver_address,
+        admin_address,
+        pending_admin_address,
         withdraw_code
     ) = load_data();
 }
@@ -45,8 +47,9 @@ global cell withdraw_code;
         proxy_id,
         debt_ton,
         utonic_minter_address,
-        admin_address,
         ton_receiver_address,
+        admin_address,
+        pending_admin_address,
         withdraw_code
     );
 }
@@ -115,7 +118,7 @@ global cell withdraw_code;
     int msg_value) impure {
 
     cell state_init = calculate_withdraw_state_init(
-        withdraw_id, user_address, my_address(), withdraw_code
+        withdraw_id, user_address, my_address(), utonic_minter_address, withdraw_code
     );
     slice withdraw_address = calculate_withdraw_address(state_init);
     var msg = begin_cell()
@@ -188,7 +191,14 @@ global cell withdraw_code;
     int balance_before_msg = my_ton_balance - msg_value;
     
     throw_unless(COMMON::ERR::INSUFFICIENT_BALANCE, balance_before_msg - ton_amount >= PROXY_TON::MIN_TON_STORAGE);
-    throw_unless(COMMON::ERR::WRONG_CALLER, equal_slices(calculate_user_withdraw_address(user_address, withdraw_id, my_address(), withdraw_code), sender_address));
+    throw_unless(
+        COMMON::ERR::WRONG_CALLER, 
+        equal_slices(
+            calculate_user_withdraw_address(
+                user_address, withdraw_id, my_address(), utonic_minter_address, withdraw_code
+            ), 
+        sender_address)
+    );
     
     debt_ton -= ton_amount;
     save_global_data();
@@ -256,11 +266,19 @@ global cell withdraw_code;
     }
 
     ;; admin operate
-    if (op == PROXY_TON::OP::UPDATE_ADMIN) {
+
+    if (op == COMMON::OP::UPDATE_ADMIN) {
         load_global_data();
         throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
-        slice new_admin_address = in_msg_body~load_msg_addr();
-        admin_address = new_admin_address;
+        pending_admin_address = in_msg_body~load_msg_addr();
+        save_global_data();
+        return ();
+    }
+
+    if (op == COMMON::OP::ACCEPT_ADMIN) {
+        load_global_data();
+        throw_unless(COMMON::ERR::WRONG_CALLER, equal_slices(sender_address, pending_admin_address));
+        admin_address = pending_admin_address;
         save_global_data();
         return ();
     }
@@ -288,18 +306,20 @@ global cell withdraw_code;
     throw(0xffff);
 }
 
-(int, int, slice, slice, slice) get_proxy_ton_data() method_id {
+(int, int, int, slice, slice, slice, slice) get_proxy_ton_data() method_id {
     load_global_data();
     return (
         proxy_type,
         proxy_id,
+        debt_ton,
         utonic_minter_address,
+        ton_receiver_address,
         admin_address,
-        ton_receiver_address
+        pending_admin_address
     );
 }
 
 slice get_withdraw_address(slice owner_address, int withdraw_id) method_id {
     load_global_data();
-    return calculate_user_withdraw_address(owner_address, withdraw_id, my_address(), withdraw_code);
+    return calculate_user_withdraw_address(owner_address, withdraw_id, my_address(), utonic_minter_address, withdraw_code);
 }

@@ -23,6 +23,7 @@ global int lst_ton_price;
 global int capacity;
 global slice utonic_minter_address;
 global slice admin_address;
+global slice pending_admin_address;
 global slice lst_ton_wallet;
 global slice lst_ton_receiver_address;
 
@@ -34,6 +35,7 @@ global slice lst_ton_receiver_address;
         capacity,
         utonic_minter_address,
         admin_address,
+        pending_admin_address,
         lst_ton_wallet,
         lst_ton_receiver_address
     ) = load_data();
@@ -47,6 +49,7 @@ global slice lst_ton_receiver_address;
         capacity,
         utonic_minter_address,
         admin_address,
+        pending_admin_address,
         lst_ton_wallet,
         lst_ton_receiver_address
     );
@@ -171,11 +174,19 @@ global slice lst_ton_receiver_address;
     }
 
     ;; admin operate
-    if (op == PROXYLST::UPDATE_ADMIN) {
+    
+    if (op == COMMON::OP::UPDATE_ADMIN) {
         load_global_data();
         throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
-        slice new_admin_address = in_msg_body~load_msg_addr();
-        admin_address = new_admin_address;
+        pending_admin_address = in_msg_body~load_msg_addr();
+        save_global_data();
+        return ();
+    }
+
+    if (op == COMMON::OP::ACCEPT_ADMIN) {
+        load_global_data();
+        throw_unless(COMMON::ERR::WRONG_CALLER, equal_slices(sender_address, pending_admin_address));
+        admin_address = pending_admin_address;
         save_global_data();
         return ();
     }

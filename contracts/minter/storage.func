@@ -1,5 +1,5 @@
 
-(int, int, int, int, slice, cell, cell, cell) load_data() impure inline {
+(int, int, int, int, slice, slice, cell, cell, cell) load_data() impure inline {
   slice ds = get_data().begin_parse();
   
   slice data_cell = ds~load_ref().begin_parse();
@@ -10,6 +10,7 @@
   
   slice address_cell = ds~load_ref().begin_parse();
   slice lc_admin_address = address_cell~load_msg_addr(); ;; admin_address
+  slice lc_pending_admin_address = address_cell~load_msg_addr(); ;; pending_admin_address
   cell lc_proxy_whitelist = address_cell~load_dict(); ;; load dict of ordinary user proxy whitelist
   
   cell lc_content = ds~load_ref(); ;; content
@@ -21,6 +22,7 @@
     lc_last_price,
     lc_price_inc,
     lc_admin_address,
+    lc_pending_admin_address,
     lc_proxy_whitelist,
     lc_content,
     lc_jetton_wallet_code
@@ -33,6 +35,7 @@
     int lc_last_price, 
     int lc_price_inc, 
     slice lc_admin_address, 
+    slice lc_pending_admin_address,
     cell lc_proxy_whitelist,
     cell lc_content, 
     cell lc_jetton_wallet_code) impure inline {
@@ -46,6 +49,7 @@
 
   cell address_cell = begin_cell()
       .store_slice(lc_admin_address)
+      .store_slice(lc_pending_admin_address)
       .store_dict(lc_proxy_whitelist)
       .end_cell();
 

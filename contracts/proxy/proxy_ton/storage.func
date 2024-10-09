@@ -1,6 +1,6 @@
 #include "../../common/params.func";
 
-(int, int, int, slice, slice, slice, cell) load_data() inline {
+(int, int, int, slice, slice, slice, slice, cell) load_data() inline {
   
   slice ds = get_data().begin_parse();
   slice data_cell_slice = ds~load_ref().begin_parse();
@@ -10,8 +10,11 @@
   
   slice address_cell_slice = ds~load_ref().begin_parse();
   slice lc_utonic_minter_address = address_cell_slice~load_msg_addr();
-  slice lc_admin_address = address_cell_slice~load_msg_addr();
   slice lc_ton_receiver_address = address_cell_slice~load_msg_addr();
+
+  slice admin_cell_slice = ds~load_ref().begin_parse();
+  slice lc_admin_address = admin_cell_slice~load_msg_addr();
+  slice lc_pending_admin_address = admin_cell_slice~load_msg_addr();
   
   cell lc_withdraw_code = ds~load_ref();
   
@@ -20,8 +23,9 @@
       lc_proxy_id, ;; proxy_id
       lc_debt_ton, ;; debt_ton
       lc_utonic_minter_address, ;; jetton_master_address
-      lc_admin_address, ;; admin_address
       lc_ton_receiver_address, ;; ton_receiver_address
+      lc_admin_address, ;; admin_address
+      lc_pending_admin_address, ;; pending_admin_address
       lc_withdraw_code ;; withdraw_code
   );
 }
@@ -31,8 +35,9 @@
     int lc_proxy_id,
     int lc_debt_ton,
     slice lc_utonic_minter,
-    slice lc_admin_address, 
     slice lc_ton_receiver_address,
+    slice lc_admin_address, 
+    slice lc_pending_admin_address,
     cell lc_withdraw_code) impure inline {
     
   cell data_cell = begin_cell()
@@ -40,16 +45,21 @@
       .store_uint(lc_proxy_id, 32)
       .store_coins(lc_debt_ton)
       .end_cell();
-  
+
   cell address_cell = begin_cell()
       .store_slice(lc_utonic_minter)
-      .store_slice(lc_admin_address)
       .store_slice(lc_ton_receiver_address)
+      .end_cell();
+  
+  cell admin_cell = begin_cell()
+      .store_slice(lc_admin_address)
+      .store_slice(lc_pending_admin_address)
       .end_cell();
   
   set_data(begin_cell()
       .store_ref(data_cell)
       .store_ref(address_cell)
+      .store_ref(admin_cell)
       .store_ref(lc_withdraw_code)
       .end_cell()
     );
