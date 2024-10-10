@@ -133,7 +133,7 @@ global slice utonic_minter_address;
     load_global_data();
 
     throw_unless(WITHDRAW::ERR::FINISHED, finished == 0);
-    throw_unless(COMMON::ERR::WRONG_CALLER, equal_slices(owner_address, sender_address));
+    throw_unless(COMMON::ERR::WRONG_CALLER, equal_slices(utonic_minter_address, sender_address));
 
     int query_id = in_msg_body~load_uint(64);
     int total_supply = in_msg_body~load_coins();
