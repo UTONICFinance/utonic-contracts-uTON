@@ -254,6 +254,7 @@ global cell jetton_wallet_code;
 
     if (op == COMMON::OP::QUERY) {
         query_data(query_id,sender_address,msg_value,in_msg_body);
+        return ();
     }
 
     ;; admin operate
