@@ -25,7 +25,7 @@ export async function run() {
 
   const proxyId = config.proxy_st_ton_id;
   const price = Number(config.st_ton_price);
-  const priceMulBase = BigInt(price * 1e9);
+  const priceMulBase = BigInt(Math.round(price * 1e9));
   const limitDecimal = Number(config.proxy_st_ton_limit);
   const limitUndecimal = BigInt(limitDecimal * 1e9);
   const proxyLSTTon = ProxyLSTTon.createForDeploy(
