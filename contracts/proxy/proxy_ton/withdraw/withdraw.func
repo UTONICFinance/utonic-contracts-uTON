@@ -125,7 +125,7 @@ global slice utonic_minter_address;
         .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
         .store_ref(msg_body);
 
-    send_raw_message(msg.end_cell(), 0);
+    send_raw_message(msg.end_cell(), 1);
 }
 
 
