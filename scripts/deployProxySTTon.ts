@@ -4,7 +4,7 @@ import { getHttpEndpoint } from "@orbs-network/ton-access";
 import { mnemonicToWalletKey } from "ton-crypto";
 import { TonClient, Cell, WalletContractV4, Address } from "@ton/ton";
 import { ONE_DAY, PRICE_BASE } from "../wrappers/constants/params";
-import ProxyTon from "../wrappers/proxy/proxyTon/ProxyTon";
+import ProxyLSTTon from "../wrappers/proxy/proxyLSTTon/ProxyLSTTon";
 import { loadIni } from "../libs/config";
 
 export async function run() {
@@ -19,29 +19,31 @@ export async function run() {
   const wallet = WalletContractV4.create({ publicKey: key.publicKey, workchain: 0 });
 
   // prepare minter's initial code and data cells for deployment
-  const proxyTonCode = Cell.fromBoc(fs.readFileSync("build/proxy_ton.cell"))[0];
-  const withdrawCode = Cell.fromBoc(fs.readFileSync("build/withdraw.cell"))[0];
+  const proxyLSTTonCode = Cell.fromBoc(fs.readFileSync("build/proxy_lst_ton.cell"))[0];
   const minterAddressString = config.utonic_minter;
   const minterAddress = Address.parse(minterAddressString);
-  const adminAddress = Address.parse(config.admin_address);
-  const tonReceiverAddress = Address.parse(config.ton_receiver);
-  
-  const proxyTon = ProxyTon.createForDeploy(
-    proxyTonCode,
-    ProxyTon.initData(
-        0,
-        0,
-        0n,
+
+  const proxyId = config.proxy_st_ton_id;
+  const price = Number(config.st_ton_price);
+  const priceMulBase = BigInt(price * 1e9);
+  const limitDecimal = Number(config.proxy_st_ton_limit);
+  const limitUndecimal = BigInt(limitDecimal * 1e9);
+  const proxyLSTTon = ProxyLSTTon.createForDeploy(
+    proxyLSTTonCode,
+    ProxyLSTTon.initData(
+        1,
+        proxyId,
+        priceMulBase,
+        limitUndecimal,
         minterAddress,
-        tonReceiverAddress,
-        adminAddress,
-        withdrawCode
+        Address.parse(config.admin_address),
+        Address.parse(config.lst_ton_receiver)
     )
   );
 
   // exit if contract is already deployed
-  console.log("contract address:", proxyTon.address.toString());
-  if (await client.isContractDeployed(proxyTon.address)) {
+  console.log("contract address:", proxyLSTTon.address.toString());
+  if (await client.isContractDeployed(proxyLSTTon.address)) {
     return console.log("Counter already deployed");
   }
 
@@ -51,8 +53,8 @@ export async function run() {
   const seqno = await walletContract.getSeqno();
 
   // send the deploy transaction
-  const proxyTonContract = client.open(proxyTon);
-  await proxyTonContract.sendDeploy(walletSender);
+  const proxyLSTTonContract = client.open(proxyLSTTon);
+  await proxyLSTTonContract.sendDeploy(walletSender);
 
   // wait until confirmed
   let currentSeqno = seqno;

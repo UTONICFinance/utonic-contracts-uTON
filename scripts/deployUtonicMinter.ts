@@ -2,7 +2,7 @@
 import * as fs from "fs";
 import { getHttpEndpoint } from "@orbs-network/ton-access";
 import { mnemonicToWalletKey } from "ton-crypto";
-import { TonClient, Cell, WalletContractV4 } from "@ton/ton";
+import { TonClient, Cell, WalletContractV4, Address } from "@ton/ton";
 import Minter from "../wrappers/Minter";
 import { ONE_DAY, PRICE_BASE } from "../wrappers/constants/params";
 import { loadIni } from "../libs/config";
@@ -22,14 +22,15 @@ export async function run() {
   // prepare minter's initial code and data cells for deployment
   const minterCode = Cell.fromBoc(fs.readFileSync("build/minter.cell"))[0];
   const utonWalletCode = Cell.fromBoc(fs.readFileSync("build/wallet.cell"))[0];
-  
+  const priceInc = Number(config.price_inc);
+  const priceIncMulBase = BigInt(priceInc * 1e9)
   const utonic = Minter.createForDeploy(
     minterCode,
     Minter.initData(
         Math.floor(new Date().getTime() / 1000 / ONE_DAY),
         BigInt(PRICE_BASE),
-        0n,
-        wallet.address,
+        priceIncMulBase,
+        Address.parse(config.admin_address),
         "UTonicMinter",
         utonWalletCode
     )

@@ -23,15 +23,20 @@ export async function run() {
   const minterAddressString = config.utonic_minter;
   const minterAddress = Address.parse(minterAddressString);
   
+  const proxyId = config.proxy_ts_ton_id;
+  const price = Number(config.ts_ton_price);
+  const priceMulBase = BigInt(price * 1e9);
+  const limitDecimal = Number(config.proxy_ts_ton_limit);
+  const limitUndecimal = BigInt(limitDecimal * 1e9);
   const proxyLSTTon = ProxyLSTTon.createForDeploy(
     proxyLSTTonCode,
     ProxyLSTTon.initData(
         1,
-        1,
-        1000000000n,
-        0n,
+        proxyId,
+        priceMulBase,
+        limitUndecimal,
         minterAddress,
-        wallet.address,
+        Address.parse(config.admin_address),
         Address.parse(config.lst_ton_receiver)
     )
   );
