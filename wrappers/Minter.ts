@@ -44,7 +44,7 @@ export default class Minter implements Contract {
 
   async sendDeploy(provider: ContractProvider, via: Sender) {
     await provider.internal(via, {
-      value: "2.0", // send TON to contract for rent
+      value: "0.2", // send TON to contract for rent
       bounce: false
     });
   }
