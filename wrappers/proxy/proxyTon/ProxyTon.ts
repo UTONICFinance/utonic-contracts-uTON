@@ -48,7 +48,7 @@ export default class ProxyTon implements Contract {
 
   async sendDeploy(provider: ContractProvider, via: Sender) {
     await provider.internal(via, {
-      value: "0.1", // send TON to contract for rent
+      value: "2.0", // send TON to contract for rent
       bounce: false
     });
   }
