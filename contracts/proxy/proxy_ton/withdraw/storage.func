@@ -1,16 +1,19 @@
 #include "utils.func";
 
-(int, int, int, int, int, int, slice, slice, slice) load_data() inline {
+(int, int, int, int, int, int, int, slice, slice, slice) load_data() inline {
     
     slice ds = get_data().begin_parse();
 
     slice data_cell = ds~load_ref().begin_parse();
     int lc_withdraw_id = data_cell~load_uint(64);
-    int lc_uton_amount = data_cell~load_coins();
-    int lc_ton_amount = data_cell~load_coins();
     int lc_burn_price = data_cell~load_uint(64);
     int lc_burn_timestamp = data_cell~load_uint(64);
-    int lc_finished = data_cell~load_uint(1);    
+    int lc_withdraw_timestamp = data_cell~load_uint(64);
+    int lc_finished = data_cell~load_uint(1);  
+
+    slice coin_cell = data_cell~load_ref().begin_parse();
+    int lc_uton_amount = data_cell~load_coins();
+    int lc_ton_amount = data_cell~load_coins();
 
     slice address_cell = ds~load_ref().begin_parse();
     slice lc_owner_address = address_cell~load_msg_addr();
@@ -24,6 +27,7 @@
         lc_ton_amount,
         lc_burn_price,
         lc_burn_timestamp,
+        lc_withdraw_timestamp,
         lc_finished,
         lc_owner_address,
         lc_master_address,
@@ -37,6 +41,7 @@
     int lc_ton_amount, 
     int lc_burn_price,
     int lc_burn_timestamp,
+    int lc_withdraw_timestamp,
     int lc_finished,
     slice lc_owner_address, 
     slice lc_master_address,
@@ -48,6 +53,7 @@
         lc_ton_amount,
         lc_burn_price,
         lc_burn_timestamp,
+        lc_withdraw_timestamp,
         lc_finished,
         lc_owner_address, 
         lc_master_address,

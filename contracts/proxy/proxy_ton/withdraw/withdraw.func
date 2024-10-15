@@ -22,6 +22,7 @@ global int uton_amount;
 global int ton_amount;
 global int burn_price;
 global int burn_timestamp;
+global int withdraw_timestamp;
 global int finished;
 global slice owner_address;
 global slice proxy_address;
@@ -35,6 +36,7 @@ global slice utonic_minter_address;
         ton_amount, 
         burn_price,
         burn_timestamp,
+        withdraw_timestamp,
         finished,
         owner_address, 
         proxy_address,
@@ -49,6 +51,7 @@ global slice utonic_minter_address;
         ton_amount, 
         burn_price,
         burn_timestamp,
+        withdraw_timestamp,
         finished,
         owner_address, 
         proxy_address,
@@ -59,12 +62,15 @@ global slice utonic_minter_address;
 () init_withdraw_data (slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
     load_global_data();
     int query_id = in_msg_body~load_uint(64);
-    uton_amount = in_msg_body~load_coins();
-    ton_amount = in_msg_body~load_coins();
     burn_price = in_msg_body~load_uint(64);
     burn_timestamp = in_msg_body~load_uint(64);
-
+    withdraw_timestamp = in_msg_body~load_uint(64);
     slice response_address = in_msg_body~load_msg_addr();
+    
+    slice coin_cell = in_msg_body~load_ref().begin_parse();
+    uton_amount = coin_cell~load_coins();
+    ton_amount = coin_cell~load_coins();
+
     throw_unless(COMMON::ERR::WRONG_CALLER, equal_slices(proxy_address, sender_address));
 
     int ton_balance_before_msg = my_ton_balance - msg_value;
@@ -87,7 +93,7 @@ global slice utonic_minter_address;
 () withdraw_ton (slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
     load_global_data();
 
-    throw_unless(WITHDRAW::ERR::PENDING_TIME_NOT_EXPIRED, now() >= burn_timestamp + WITHDRAW::PENDING_TIME);
+    throw_unless(WITHDRAW::ERR::PENDING_TIME_NOT_EXPIRED, now() >= withdraw_timestamp);
     throw_unless(WITHDRAW::ERR::FINISHED, finished == 0);
     int query_id = in_msg_body~load_uint(64);
     slice recipient_address = in_msg_body~load_msg_addr();
@@ -231,7 +237,7 @@ global slice utonic_minter_address;
     throw(0xffff);
 }
 
-(int, int, int, int, int, int, slice, slice) get_withdraw_data() method_id {
+(int, int, int, int, int, int, int, slice, slice) get_withdraw_data() method_id {
     
     load_global_data();
     return (
@@ -239,6 +245,7 @@ global slice utonic_minter_address;
         uton_amount, 
         ton_amount, 
         burn_timestamp,
+        withdraw_timestamp,
         burn_price,
         finished,
         owner_address, 
