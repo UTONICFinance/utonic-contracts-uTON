@@ -31,6 +31,7 @@ export async function run() {
     ProxyTon.initData(
         0,
         0,
+        Number(config.withdraw_pending_time),
         0n,
         minterAddress,
         tonReceiverAddress,
