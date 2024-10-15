@@ -322,11 +322,12 @@ global cell withdraw_code;
     throw(0xffff);
 }
 
-(int, int, int, slice, slice, slice, slice) get_proxy_ton_data() method_id {
+(int, int, int, int, slice, slice, slice, slice) get_proxy_ton_data() method_id {
     load_global_data();
     return (
         proxy_type,
         proxy_id,
+        withdraw_pending_time,
         debt_ton,
         utonic_minter_address,
         ton_receiver_address,
