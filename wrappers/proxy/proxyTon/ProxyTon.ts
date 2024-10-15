@@ -1,11 +1,13 @@
 import { Contract, ContractProvider, Sender, Address, Cell, contractAddress, beginCell, Slice, TupleItemSlice, TupleItemInt, Dictionary } from "@ton/core";
 import { COMMON_OP_STAKE } from "../../common/opcodes";
+import { PROXY_TON_OP_UPDATE_WITHDRAW_PENDING_TIME } from "./opcodes";
 
 export default class ProxyTon implements Contract {
 
   static initData(
     proxyType: number,
     proxyId: number,
+    pendingTime: number,
     debtTon: bigint,
     utonicMinterAddress: Address,
     tonReceiver: Address,
@@ -15,6 +17,7 @@ export default class ProxyTon implements Contract {
     const dataCell = beginCell()
       .storeUint(proxyType, 32)
       .storeUint(proxyId, 32)
+      .storeUint(pendingTime, 64)
       .storeCoins(debtTon)
       .endCell()
 
@@ -65,6 +68,18 @@ export default class ProxyTon implements Contract {
       .storeUint(queryId, 64) // query id
       .storeAddress(userAddress)
       .storeAddress(responseAddress)
+      .endCell();
+    await provider.internal(via, {
+      value,
+      body: messageBody
+    });
+  }
+
+  async sendUpdatePendingTime(provider: ContractProvider, via: Sender, queryId: number, pendingTime: number, value: string) {
+    const messageBody = beginCell()
+      .storeUint(PROXY_TON_OP_UPDATE_WITHDRAW_PENDING_TIME, 32) // op 
+      .storeUint(queryId, 64) // query id
+      .storeUint(pendingTime, 64)
       .endCell();
     await provider.internal(via, {
       value,
