@@ -21,7 +21,7 @@
 
 global int proxy_type;
 global int proxy_id;
-global int pending_time;
+global int withdraw_pending_time;
 global int debt_ton;
 global slice utonic_minter_address;
 global slice ton_receiver_address;
@@ -33,7 +33,7 @@ global cell withdraw_code;
     (
         proxy_type,
         proxy_id,
-        pending_time,
+        withdraw_pending_time,
         debt_ton,
         utonic_minter_address,
         ton_receiver_address,
@@ -47,7 +47,7 @@ global cell withdraw_code;
     save_data(
         proxy_type,
         proxy_id,
-        pending_time,
+        withdraw_pending_time,
         debt_ton,
         utonic_minter_address,
         ton_receiver_address,
@@ -165,7 +165,7 @@ global cell withdraw_code;
         .store_uint(query_id, 64)
         .store_uint(price, 64)
         .store_uint(timestamp, 64)
-        .store_uint(timestamp + pending_time, 64)
+        .store_uint(timestamp + withdraw_pending_time, 64)
         .store_slice(response_address) 
         .store_ref(
             begin_cell()
@@ -311,10 +311,10 @@ global cell withdraw_code;
         return ();
     }
 
-    if (op == PROXY_TON::OP::UPDATE_PENDING_TIME) {
+    if (op == PROXY_TON::OP::UPDATE_WITHDRAW_PENDING_TIME) {
         load_global_data();
         throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
-        pending_time = in_msg_body~load_uint(64);
+        withdraw_pending_time = in_msg_body~load_uint(64);
         save_global_data();
         return ();
     }

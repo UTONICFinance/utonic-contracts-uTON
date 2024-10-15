@@ -6,7 +6,7 @@
   slice data_cell_slice = ds~load_ref().begin_parse();
   int lc_proxy_type = data_cell_slice~load_uint(32);
   int lc_proxy_id = data_cell_slice~load_uint(32);
-  int lc_pending_time = data_cell_slice~load_uint(64);
+  int lc_withdraw_pending_time = data_cell_slice~load_uint(64);
   int lc_debt_ton = data_cell_slice~load_coins(); 
   
   slice address_cell_slice = ds~load_ref().begin_parse();
@@ -22,7 +22,7 @@
   return (
       lc_proxy_type, ;; proxy_type
       lc_proxy_id, ;; proxy_id
-      lc_pending_time, ;; pending_time
+      lc_withdraw_pending_time, ;; withdraw_pending_time
       lc_debt_ton, ;; debt_ton
       lc_utonic_minter_address, ;; jetton_master_address
       lc_ton_receiver_address, ;; ton_receiver_address
@@ -35,7 +35,7 @@
 () save_data(
     int lc_proxy_type,
     int lc_proxy_id,
-    int lc_pending_time,
+    int lc_withdraw_pending_time,
     int lc_debt_ton,
     slice lc_utonic_minter,
     slice lc_ton_receiver_address,
@@ -46,7 +46,7 @@
   cell data_cell = begin_cell()
       .store_uint(lc_proxy_type, 32)
       .store_uint(lc_proxy_id, 32)
-      .store_uint(lc_pending_time, 64)
+      .store_uint(lc_withdraw_pending_time, 64)
       .store_coins(lc_debt_ton)
       .end_cell();
 
