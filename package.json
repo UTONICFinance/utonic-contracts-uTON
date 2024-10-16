@@ -8,6 +8,7 @@
     "compileproxylstton": "npx func-js contracts/proxy/proxy_lst_ton/proxy_lst_ton.func --boc build/proxy_lst_ton.cell",
     "compileproxyton": "npx func-js contracts/proxy/proxy_ton/proxy_ton.func --boc build/proxy_ton.cell",
     "compileproxywhale2": "npx func-js contracts/proxy/proxy_whale2/proxy_whale2.func --boc build/proxy_whale2.cell",
+    "compileproxywhale3": "npx func-js contracts/proxy/proxy_whale3/proxy_whale3.func --boc build/proxy_whale3.cell",
     "compiletestjettonminter": "npx func-js contracts/test/jetton/minter.func --boc build/test_jetton_minter.cell",
     "compiletestjettonwallet": "npx func-js contracts/test/jetton/wallet.func --boc build/test_jetton_wallet.cell",
     "test": "jest --verbose"
