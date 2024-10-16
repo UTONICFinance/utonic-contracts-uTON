@@ -178,7 +178,7 @@ global slice pending_admin_address;
     throw(0xffff);
 }
 
-(int, int, int, slice, slice, slice, slice, slice) get_proxy_whale2_data() method_id {
+(int, int, int, slice, slice, slice, slice, slice) get_proxy_whale3_data() method_id {
     load_global_data();
     return (
         proxy_type,
