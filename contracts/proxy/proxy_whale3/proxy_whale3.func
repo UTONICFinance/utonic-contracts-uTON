@@ -68,7 +68,7 @@ global slice pending_admin_address;
     int storage_fee = PROXY_WHALE3::MIN_TON_STORAGE - min(ton_balance_before_msg, PROXY_WHALE3::MIN_TON_STORAGE);
 
     throw_unless(
-        PROXY_COMMON::ERR::INVALID_TON_AMOUNT, 
+        PROXY_COMMON::ERR::INSUFFICIENT_VALUE, 
         msg_value > PROXY_WHALE3::MINT_FEE
             + fwd_fee
             + MINTER::MINT_FEE
@@ -80,6 +80,9 @@ global slice pending_admin_address;
         - fwd_fee;
 
     int ton_amount = in_msg_body~load_coins();
+    throw_unless(PROXY_COMMON::ERR::CAPACITY_NOT_ENOUGH, capacity < ton_amount);
+    capacity -= ton_amount;
+    save_global_data();
     slice response_address = in_msg_body~load_msg_addr();
 
     ;; then send notify msg to utonic minter(jetton master)
