@@ -1,7 +1,7 @@
 import { Contract, ContractProvider, Sender, Address, Cell, contractAddress, beginCell, Slice, TupleItemSlice, TupleItemInt, Dictionary } from "@ton/core";
 import { PROXY_COMMON_OP_STAKE } from "../opcode";
 
-export default class ProxyWhale2 implements Contract {
+export default class ProxyWhale3 implements Contract {
 
   static initData(
     proxyType: number,
@@ -10,7 +10,6 @@ export default class ProxyWhale2 implements Contract {
     whaleAddress: Address,
     utonicMinterAddress: Address,
     utonReceiver: Address,
-    tonReceiver: Address,
     admin: Address,
   ): Cell {
     const baseCell = beginCell()
@@ -26,7 +25,6 @@ export default class ProxyWhale2 implements Contract {
     
     const receiverCell = beginCell()
       .storeAddress(utonReceiver)
-      .storeAddress(tonReceiver)
       .endCell()
     
     const adminCell = beginCell()
@@ -46,10 +44,10 @@ export default class ProxyWhale2 implements Contract {
       .endCell()
   }
 
-  static createForDeploy(code: Cell, data: Cell): ProxyWhale2 {
+  static createForDeploy(code: Cell, data: Cell): ProxyWhale3 {
     const workchain = 0; // deploy to workchain 0
     const address = contractAddress(workchain, { code, data });
-    return new ProxyWhale2(address, { code, data });
+    return new ProxyWhale3(address, { code, data });
   }
 
   constructor(readonly address: Address, readonly init?: { code: Cell, data: Cell }) {}
@@ -67,11 +65,11 @@ export default class ProxyWhale2 implements Contract {
     });
   }
 
-  async sendStake(provider: ContractProvider, via: Sender, queryId: number, userAddress: Address, responseAddress: Address, value: string) {
+  async sendStake(provider: ContractProvider, via: Sender, queryId: number, amount: bigint, responseAddress: Address, value: string) {
     const messageBody = beginCell()
       .storeUint(PROXY_COMMON_OP_STAKE, 32) // op 
       .storeUint(queryId, 64) // query id
-      .storeAddress(userAddress)
+      .storeCoins(amount)
       .storeAddress(responseAddress)
       .endCell();
     await provider.internal(via, {
