@@ -79,7 +79,12 @@ global slice pending_admin_address;
         - fwd_fee
         - MINTER::MINT_FEE 
         - WALLET::MINT_FEE;
+        
     throw_unless(PROXY_COMMON::ERR::INVALID_TON_AMOUNT, ton_amount > 0);
+    throw_unless(PROXY_COMMON::ERR::CAPACITY_NOT_ENOUGH, capacity >= ton_amount);
+    capacity -= ton_amount;
+    save_global_data();
+
     _send_ton(query_id, ton_amount);
     
     slice response_address = in_msg_body~load_msg_addr();
