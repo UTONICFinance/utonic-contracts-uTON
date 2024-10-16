@@ -21,7 +21,6 @@ global int capacity;
 global slice whale_address;
 global slice minter_address;
 global slice uton_receiver_address;
-global slice ton_receiver_address;
 global slice admin_address;
 global slice pending_admin_address;
 
@@ -33,7 +32,6 @@ global slice pending_admin_address;
         whale_address,
         minter_address,
         uton_receiver_address,
-        ton_receiver_address,
         admin_address,
         pending_admin_address
     ) = load_data();
@@ -47,17 +45,15 @@ global slice pending_admin_address;
         whale_address,
         minter_address,
         uton_receiver_address,
-        ton_receiver_address,
         admin_address,
         pending_admin_address
     );
 }
 
-
-() _send_ton(int query_id, int ton_amount) impure {
+() _send_ton(int query_id, int ton_amount, slice ton_receiver) impure {
     var msg_to_ton_receiver = begin_cell()
         .store_uint(0x10, 6)
-        .store_slice(ton_receiver_address)
+        .store_slice(ton_receiver)
         .store_coins(ton_amount)
         .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1);
         ;; .store_uint(PROXY_COMMON::OP::STAKE_SAVE, 32)
@@ -68,20 +64,22 @@ global slice pending_admin_address;
 () proxy_stake(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
    
     load_global_data();
-
-    ;; throw_unless(PROXY_COMMON::ERR::TON_RECEIVER_NOT_SET, ton_receiver_address.preload_uint(2) != 0);
-
     int ton_balance_before_msg = my_ton_balance - msg_value;
-    int storage_fee = PROXY_WHALE2::MIN_TON_STORAGE - min(ton_balance_before_msg, PROXY_WHALE2::MIN_TON_STORAGE);
+    int storage_fee = PROXY_WHALE3::MIN_TON_STORAGE - min(ton_balance_before_msg, PROXY_WHALE3::MIN_TON_STORAGE);
 
-    int ton_amount = msg_value 
-        - PROXY_WHALE2::MINT_FEE
-        - fwd_fee
-        - MINTER::MINT_FEE 
-        - WALLET::MINT_FEE;
-    throw_unless(PROXY_COMMON::ERR::INVALID_TON_AMOUNT, ton_amount > 0);
-    _send_ton(query_id, ton_amount);
-    
+    throw_unless(
+        PROXY_COMMON::ERR::INVALID_TON_AMOUNT, 
+        msg_value > PROXY_WHALE3::MINT_FEE
+            + fwd_fee
+            + MINTER::MINT_FEE
+            + WALLET::MINT_FEE
+    );
+
+    int remain_value = msg_value 
+        - PROXY_WHALE3::MINT_FEE
+        - fwd_fee;
+
+    int ton_amount = in_msg_body~load_coins();
     slice response_address = in_msg_body~load_msg_addr();
 
     ;; then send notify msg to utonic minter(jetton master)
@@ -98,7 +96,7 @@ global slice pending_admin_address;
     var notify_msg = begin_cell()
         .store_uint(0x18, 6)
         .store_slice(minter_address)
-        .store_coins(MINTER::MINT_FEE + WALLET::MINT_FEE)
+        .store_coins(remain_value)
         .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
         .store_ref(notify_msg_body);
 
@@ -133,19 +131,11 @@ global slice pending_admin_address;
     }
 
     load_global_data();
-    ;; whale
-    if (op == PROXY_COMMON::OP::UPDATE_UTON_RECEIVER) {
-        throw_unless(PROXY_COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, whale_address));
-        uton_receiver_address = in_msg_body~load_msg_addr();
-        save_global_data();
-        return ();
-    }
 
     ;; admin
-
-    if (op == PROXY_COMMON::OP::UPDATE_TON_RECEIVER) {
+    if (op == PROXY_COMMON::OP::UPDATE_UTON_RECEIVER) {
         throw_unless(PROXY_COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
-        ton_receiver_address = in_msg_body~load_msg_addr();
+        uton_receiver_address = in_msg_body~load_msg_addr();
         save_global_data();
         return ();
     }
@@ -167,13 +157,14 @@ global slice pending_admin_address;
     if (op == PROXY_COMMON::OP::EXTRACT_ASSETS) {
         throw_unless(PROXY_COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         int ton_amount = in_msg_body~load_coins();
+        slice ton_receiver = in_msg_body~load_msg_addr();
         throw_unless(
             PROXY_COMMON::ERR::INSUFFICIENT_BALANCE, 
             my_balance <= ton_amount
                 + fwd_fee
-                + PROXY_WHALE2::MIN_TON_STORAGE
+                + PROXY_WHALE3::MIN_TON_STORAGE
         );
-        _send_ton(query_id,ton_amount);
+        _send_ton(query_id,ton_amount,ton_receiver);
         return ();
     }
 
@@ -187,7 +178,7 @@ global slice pending_admin_address;
     throw(0xffff);
 }
 
-(int, int, int, slice, slice, slice, slice, slice, slice) get_proxy_whale2_data() method_id {
+(int, int, int, slice, slice, slice, slice, slice) get_proxy_whale2_data() method_id {
     load_global_data();
     return (
         proxy_type,
@@ -196,7 +187,6 @@ global slice pending_admin_address;
         whale_address, 
         minter_address, 
         uton_receiver_address,
-        ton_receiver_address,
         admin_address,
         pending_admin_address
     );

@@ -1,5 +1,5 @@
 
-(int, int, int, slice, slice, slice, slice, slice, slice) load_data() inline {
+(int, int, int, slice, slice, slice, slice, slice) load_data() inline {
     slice ds = get_data().begin_parse();
     slice base_cell = ds~load_ref().begin_parse();
     int lc_proxy_type = base_cell~load_uint(32);
@@ -14,7 +14,6 @@
 
     slice receiver_cell = address_cell~load_ref().begin_parse();
     slice lc_uton_receiver_address = receiver_cell~load_msg_addr();
-    slice lc_ton_receiver_address = receiver_cell~load_msg_addr();
 
     slice admin_cell = address_cell~load_ref().begin_parse();
     slice lc_admin_address = admin_cell~load_msg_addr();
@@ -27,7 +26,6 @@
         lc_whale_address,
         lc_minter_address,
         lc_uton_receiver_address,
-        lc_ton_receiver_address,
         lc_admin_address,
         lc_pending_admin_address
     );
@@ -40,7 +38,6 @@ cell pack_proxy_whale_type2_data(
   slice lc_whale_address, 
   slice lc_minter_address, 
   slice lc_uton_receiver_address, 
-  slice lc_ton_receiver_address, 
   slice lc_admin_address, 
   slice lc_pending_admin_address
 ) inline {
@@ -58,7 +55,6 @@ cell pack_proxy_whale_type2_data(
   
   cell receiver_cell = begin_cell()
     .store_slice(lc_uton_receiver_address)
-    .store_slice(lc_ton_receiver_address)
     .end_cell();
     
   cell admin_cell = begin_cell()
@@ -85,7 +81,6 @@ cell pack_proxy_whale_type2_data(
     slice whale_address,
     slice minter_address, 
     slice uton_receiver_address,
-    slice ton_receiver_address,
     slice admin_address,
     slice pending_admin_address
 ) impure inline {
@@ -96,7 +91,6 @@ cell pack_proxy_whale_type2_data(
         whale_address,
         minter_address,
         uton_receiver_address,
-        ton_receiver_address,
         admin_address,
         pending_admin_address
     ));
