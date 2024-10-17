@@ -1,7 +1,7 @@
-#include "../../../imports/stdlib.fc";
-#include "../../../libs/libs_utils.func";
+#include "../../imports/stdlib.fc";
+#include "../../uton/libs/libs_utils.func";
 
-#include "../../../minter/minter_params.func";
+#include "../../uton/minter_params.func";
 
 #include "../proxy_ton_op.func";
 #include "../proxy_ton_params.func";

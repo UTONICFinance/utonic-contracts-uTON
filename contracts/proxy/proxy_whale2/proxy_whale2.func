@@ -1,9 +1,9 @@
-#include "../../imports/stdlib.fc";
-#include "../../libs/libs_utils.func";
+#include "../imports/stdlib.fc";
+#include "../uton/libs/libs_utils.func";
 
-#include "../../minter/minter_op.func";
-#include "../../minter/minter_params.func";
-#include "../../wallet/wallet_params.func";
+#include "../uton/minter_op.func";
+#include "../uton/minter_params.func";
+#include "../uton/wallet_params.func";
 
 #include "../proxy_op.func";
 #include "../proxy_standard_op.func";

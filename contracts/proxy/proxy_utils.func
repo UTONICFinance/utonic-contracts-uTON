@@ -15,7 +15,7 @@
 }
 
 (int) get_day(int timestamp) inline {
-  return timestamp / COMMON::ONE_DAY;
+  return timestamp / PROXY_COMMON::ONE_DAY;
 }
 
 (int) get_current_day() inline {
@@ -27,9 +27,9 @@
 }
 
 (int) get_ton_amount(int uton_amount, int price) inline {
-    return uton_amount * price / COMMON::PRICE_BASE;
+    return uton_amount * price / PROXY_COMMON::PRICE_BASE;
 }
 
 (int) get_uton_amount(int ton_amount, int price) inline {
-    return ton_amount * COMMON::PRICE_BASE / price;
+    return ton_amount * PROXY_COMMON::PRICE_BASE / price;
 }
