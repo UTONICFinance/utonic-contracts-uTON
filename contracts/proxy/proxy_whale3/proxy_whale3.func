@@ -136,6 +136,13 @@ global slice pending_admin_address;
     load_global_data();
 
     ;; admin
+    if (op == PROXY_COMMON::OP::UPDATE_WHALE) {
+        throw_unless(PROXY_COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        whale_address = in_msg_body~load_msg_addr();
+        save_global_data();
+        return ();
+    }
+
     if (op == PROXY_COMMON::OP::UPDATE_UTON_RECEIVER) {
         throw_unless(PROXY_COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         uton_receiver_address = in_msg_body~load_msg_addr();
