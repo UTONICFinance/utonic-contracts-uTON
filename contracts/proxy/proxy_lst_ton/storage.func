@@ -1,4 +1,3 @@
-#include "../../common/common_params.func";
 
 (int, int, int, int, slice, slice, slice, slice, slice) load_data() inline {
   

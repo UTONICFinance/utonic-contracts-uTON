@@ -1,5 +1,5 @@
 #include "../imports/stdlib.fc";
-#include "../common/common_params.func";
+#include "./proxy_params.func";
 
 const PROXY_TON::EVENT::CODE_BASE = 0x4000;
 
@@ -7,7 +7,7 @@ const PROXY_TON::EVENT::WITHDRAW = PROXY_TON::EVENT::CODE_BASE + 1;
 () emit_withdraw_log(slice user_address, int withdraw_id, int ton_amount, slice recipient_address, int withdraw_timestamp) impure {
 
     var msg_body = begin_cell()
-        .store_uint(PROXY_TON::EVENT::WITHDRAW, COMMON::EVENT_LEN)
+        .store_uint(PROXY_TON::EVENT::WITHDRAW, PROXY_COMMON::EVENT_LEN)
         .store_slice(user_address)
         .store_uint(withdraw_id, 64)
         .store_coins(ton_amount)
