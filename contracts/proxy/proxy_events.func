@@ -1,4 +1,4 @@
-#include "../imports/stdlib.fc";
+#include "imports/stdlib.fc";
 #include "./proxy_params.func";
 
 const PROXY_TON::EVENT::CODE_BASE = 0x4000;
