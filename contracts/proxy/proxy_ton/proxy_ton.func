@@ -2,7 +2,7 @@
 #include "../uton/libs/libs_utils.func";
 
 #include "../uton/minter_params.func";
-#include "../../wallet/wallet_params.func";
+#include "../uton/wallet_params.func";
 
 #include "withdraw/withdraw_op.func";
 #include "withdraw/withdraw_params.func";
