@@ -1,5 +1,5 @@
-#include "../standard/op.func";
-#include "./params.func";
+#include "../standard/standard_op.func";
+#include "./common_params.func";
 
 () refund_fee(int query_id, slice response_address, int msg_value) {
     if ((response_address.preload_uint(2) != 0) & (msg_value > 0)) {

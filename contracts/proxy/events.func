@@ -1,5 +1,5 @@
 #include "../imports/stdlib.fc";
-#include "../common/params.func";
+#include "../common/common_params.func";
 
 const PROXY_TON::EVENT::CODE_BASE = 0x4000;
 

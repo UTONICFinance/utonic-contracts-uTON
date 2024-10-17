@@ -1,4 +1,4 @@
-#include "../common/params.func";
+#include "../common/common_params.func";
 
 (int) get_workchain(slice address) inline {
   (int wc, _) = parse_var_addr(address);

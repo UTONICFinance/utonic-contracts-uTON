@@ -1,16 +1,16 @@
 #include "../../imports/stdlib.fc";
-#include "../../libs/utils.func";
+#include "../../libs/libs_utils.func";
 
-#include "../../common/op.func";
-#include "../../common/errors.func";
+#include "../../common/common_op.func";
+#include "../../common/common_errors.func";
 
-#include "../../standard/op.func";
+#include "../../standard/standard_op.func";
 
-#include "../../minter/op.func";
-#include "../../minter/params.func";
-#include "../../minter/errors.func";
+#include "../../minter/minter_op.func";
+#include "../../minter/minter_params.func";
+#include "../../minter/minter_errors.func";
 
-#include "../../wallet/params.func";
+#include "../../wallet/wallet_params.func";
 
 #include "op.func";
 #include "errors.func";

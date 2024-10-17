@@ -1,4 +1,0 @@
-const PROXY_TYPE_TON = 0;
-const PROXY_TYPE_LST_TON = 1;
-const PROXY_TYPE_WHALE1 = 2;
-const PROXY_TYPE_WHALE2 = 3;

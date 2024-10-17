@@ -1,6 +1,6 @@
 #include "../imports/stdlib.fc";
-#include "../common/params.func";
-#include "params.func";
+#include "../common/common_params.func";
+#include "minter_params.func";
 
 const EVENT_STAKE = 1;
 const EVENT_BURN = 2;
