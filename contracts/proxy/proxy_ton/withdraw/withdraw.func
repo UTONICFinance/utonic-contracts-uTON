@@ -9,13 +9,13 @@
 
 #include "../../../minter/minter_params.func";
 
-#include "../op.func";
-#include "../params.func";
+#include "../proxy_ton_op.func";
+#include "../proxy_ton_params.func";
 
-#include "op.func";
-#include "params.func";
-#include "storage.func";
-#include "errors.func";
+#include "withdraw_op.func";
+#include "withdraw_params.func";
+#include "withdraw_storage.func";
+#include "withdraw_errors.func";
 
 global int withdraw_id;
 global int uton_amount;

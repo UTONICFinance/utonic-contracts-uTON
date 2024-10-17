@@ -9,15 +9,15 @@
 #include "../../minter/minter_params.func";
 #include "../../wallet/wallet_params.func";
 
-#include "withdraw/op.func";
-#include "withdraw/params.func";
-#include "withdraw/utils.func";
+#include "withdraw/withdraw_op.func";
+#include "withdraw/withdraw_params.func";
+#include "withdraw/withdraw_utils.func";
 
 #include "../events.func";
 
-#include "op.func";
-#include "params.func";
-#include "storage.func";
+#include "proxy_ton_op.func";
+#include "proxy_ton_params.func";
+#include "proxy_ton_storage.func";
 
 global int proxy_type;
 global int proxy_id;
