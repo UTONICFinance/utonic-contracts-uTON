@@ -1,0 +1,35 @@
+#include "./proxy_standard_op.func";
+#include "./proxy_params.func";
+
+() refund_fee(int query_id, slice response_address, int msg_value) {
+    if ((response_address.preload_uint(2) != 0) & (msg_value > 0)) {
+        var msg_excesses = begin_cell()
+            .store_uint(0x10, 6)
+            .store_slice(response_address)
+            .store_coins(msg_value)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_uint(OP::EXCESSES, 32)
+            .store_uint(query_id, 64);
+        send_raw_message(msg_excesses.end_cell(), 2);
+    }
+}
+
+(int) get_day(int timestamp) inline {
+  return timestamp / COMMON::ONE_DAY;
+}
+
+(int) get_current_day() inline {
+    return get_day(now());
+}
+
+(int) get_price(int last_price_day, int last_price, int price_inc, int current_day) inline {
+  return last_price + (current_day - last_price_day) * price_inc;
+}
+
+(int) get_ton_amount(int uton_amount, int price) inline {
+    return uton_amount * price / COMMON::PRICE_BASE;
+}
+
+(int) get_uton_amount(int ton_amount, int price) inline {
+    return ton_amount * COMMON::PRICE_BASE / price;
+}

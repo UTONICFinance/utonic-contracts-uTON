@@ -1,9 +1,6 @@
 #include "../../imports/stdlib.fc";
 #include "../../libs/libs_utils.func";
 
-#include "../../common/common_op.func";
-#include "../../common/common_errors.func";
-
 #include "../../standard/standard_op.func";
 
 #include "../../minter/minter_op.func";
@@ -11,6 +8,10 @@
 #include "../../minter/minter_errors.func";
 
 #include "../../wallet/wallet_params.func";
+
+#include "../proxy_op.func";
+#include "../proxy_params.func";
+#include "../proxy_errors.func";
 
 #include "op.func";
 #include "errors.func";
@@ -56,7 +57,7 @@ global slice lst_ton_receiver_address;
 }
 
 (int) get_ton_amount(int lst_ton_amount, int current_lst_ton_price) inline {
-    return lst_ton_amount * current_lst_ton_price / COMMON::PRICE_BASE;
+    return lst_ton_amount * current_lst_ton_price / PROXY_COMMON::PRICE_BASE;
 }
 
 () _send_lst_ton(int query_id, int amount, slice response_address, int send_all_fee) impure {
@@ -91,7 +92,7 @@ global slice lst_ton_receiver_address;
    
     load_global_data();
 
-    throw_unless(COMMON::ERR::WRONG_CALLER, equal_slices(lst_ton_wallet, sender_address));
+    throw_unless(PROXY_COMMON::ERR::WRONG_CALLER, equal_slices(lst_ton_wallet, sender_address));
 
     int lst_ton_amount = in_msg_body~load_coins();
     throw_unless(PROXYLST::ERR::CAPACITY_NOT_ENOUGH, capacity >= lst_ton_amount);
@@ -99,13 +100,13 @@ global slice lst_ton_receiver_address;
     save_global_data();
     slice user_address = in_msg_body~load_msg_addr();
     slice response_address = in_msg_body~load_msg_addr();
-    throw_unless(COMMON::ERR::INVALID_AMOUNT, lst_ton_amount > 0);
+    throw_unless(PROXY_COMMON::ERR::INVALID_AMOUNT, lst_ton_amount > 0);
 
     int ton_balance_before_msg = my_ton_balance - msg_value;
     int storage_fee = PROXYLST::MIN_TON_STORAGE - min(ton_balance_before_msg, PROXYLST::MIN_TON_STORAGE);
 
     throw_unless(
-        COMMON::ERR::INSUFFICIENT_VALUE, 
+        PROXY_COMMON::ERR::INSUFFICIENT_VALUE, 
         msg_value > 
         storage_fee
         + PROXYLST::TRANSFER_NOTIFICATION_FEE 
@@ -127,7 +128,7 @@ global slice lst_ton_receiver_address;
 
     ;; then send notify msg to utonic minter(jetton master)
     var notify_msg_body = begin_cell()
-        .store_uint(COMMON::OP::STAKE, 32)
+        .store_uint(PROXY_COMMON::OP::STAKE, 32)
         .store_uint(query_id, 64)
         .store_uint(proxy_type, 32)
         .store_uint(proxy_id, 32)
@@ -177,17 +178,17 @@ global slice lst_ton_receiver_address;
 
     ;; admin operate
     
-    if (op == COMMON::OP::UPDATE_ADMIN) {
+    if (op == PROXY_COMMON::OP::UPDATE_ADMIN) {
         load_global_data();
-        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        throw_unless(PROXY_COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         pending_admin_address = in_msg_body~load_msg_addr();
         save_global_data();
         return ();
     }
 
-    if (op == COMMON::OP::ACCEPT_ADMIN) {
+    if (op == PROXY_COMMON::OP::ACCEPT_ADMIN) {
         load_global_data();
-        throw_unless(COMMON::ERR::WRONG_CALLER, equal_slices(sender_address, pending_admin_address));
+        throw_unless(PROXY_COMMON::ERR::WRONG_CALLER, equal_slices(sender_address, pending_admin_address));
         admin_address = pending_admin_address;
         save_global_data();
         return ();
@@ -195,7 +196,7 @@ global slice lst_ton_receiver_address;
 
     if (op == PROXYLST::UPDATE_PRICE) {
         load_global_data();
-        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        throw_unless(PROXY_COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         
         lst_ton_price = in_msg_body~load_uint(64);
         save_global_data();
@@ -204,7 +205,7 @@ global slice lst_ton_receiver_address;
 
     if (op == PROXYLST::UPDATE_PROXYLST_WALLET) {
         load_global_data();
-        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        throw_unless(PROXY_COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         
         slice wallet = in_msg_body~load_msg_addr();
         lst_ton_wallet = wallet;
@@ -214,7 +215,7 @@ global slice lst_ton_receiver_address;
 
     if (op == PROXYLST::UPDATE_LST_TON_RECEIVER) {
         load_global_data();
-        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        throw_unless(PROXY_COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         
         slice receiver = in_msg_body~load_msg_addr();
         lst_ton_receiver_address = receiver;
@@ -224,7 +225,7 @@ global slice lst_ton_receiver_address;
 
     if (op == PROXYLST::SEND_LST_TON) {
         load_global_data();
-        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        throw_unless(PROXY_COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         int amount = in_msg_body~load_coins();
         slice response_address = in_msg_body~load_msg_addr();
         _send_lst_ton(query_id, amount, response_address, true);
@@ -233,7 +234,7 @@ global slice lst_ton_receiver_address;
 
     if (op == PROXYLST::UPDATE_CAPACITY) {
         load_global_data();
-        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        throw_unless(PROXY_COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         capacity = in_msg_body~load_coins();
         save_global_data();
         return ();

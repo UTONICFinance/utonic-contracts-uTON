@@ -1,9 +1,6 @@
 #include "../../imports/stdlib.fc";
 #include "../../libs/libs_utils.func";
 
-#include "../../common/common_errors.func";
-#include "../../common/common_op.func";
-
 #include "../../standard/standard_op.func";
 
 #include "../../minter/minter_params.func";
@@ -13,7 +10,10 @@
 #include "withdraw/withdraw_params.func";
 #include "withdraw/withdraw_utils.func";
 
-#include "../events.func";
+#include "../proxy_events.func";
+
+#include "../proxy_errors.func";
+#include "../proxy_op.func";
 
 #include "proxy_ton_op.func";
 #include "proxy_ton_params.func";
@@ -64,7 +64,7 @@ global cell withdraw_code;
         .store_slice(recipient_address)
         .store_coins(ton_amount)
         .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1);
-        ;; .store_uint(COMMON::OP::STAKE_SAVE, 32)
+        ;; .store_uint(PROXY_COMMON::OP::STAKE_SAVE, 32)
         ;; .store_uint(query_id, 64);
     send_raw_message(msg_to_ton_receiver.end_cell(), send_all_fee ? 64 : 1);
 }
@@ -73,7 +73,7 @@ global cell withdraw_code;
    
     load_global_data();
 
-    ;; throw_unless(COMMON::ERR::TON_RECEIVER_NOT_SET, ton_receiver_address.preload_uint(2) != 0);
+    ;; throw_unless(PROXY_COMMON::ERR::TON_RECEIVER_NOT_SET, ton_receiver_address.preload_uint(2) != 0);
 
     int ton_balance_before_msg = my_ton_balance - msg_value;
     int storage_fee = PROXY_TON::MIN_TON_STORAGE - min(ton_balance_before_msg, PROXY_TON::MIN_TON_STORAGE);
@@ -83,8 +83,8 @@ global cell withdraw_code;
         - fwd_fee
         - MINTER::MINT_FEE 
         - WALLET::MINT_FEE;
-    throw_unless(COMMON::ERR::INVALID_TON_AMOUNT, ton_amount > 0);
-    ;; throw_unless(COMMON::ERR::TON_RECEIVER_NOT_SET, ton_receiver_address.preload_uint(2) != 0);
+    throw_unless(PROXY_COMMON::ERR::INVALID_TON_AMOUNT, ton_amount > 0);
+    ;; throw_unless(PROXY_COMMON::ERR::TON_RECEIVER_NOT_SET, ton_receiver_address.preload_uint(2) != 0);
     _send_ton(query_id, ton_amount, ton_receiver_address, false);
     
     slice user_address = in_msg_body~load_msg_addr();
@@ -92,7 +92,7 @@ global cell withdraw_code;
 
     ;; then send notify msg to utonic minter(jetton master)
     var notify_msg_body = begin_cell()
-        .store_uint(COMMON::OP::STAKE, 32)
+        .store_uint(PROXY_COMMON::OP::STAKE, 32)
         .store_uint(query_id, 64)
         .store_uint(proxy_type, 32)
         .store_uint(proxy_id, 32)
@@ -141,7 +141,7 @@ global cell withdraw_code;
 
     msg_value -= (PROXY_TON::BURN_FEE + storage_fee);
     throw_unless(
-        COMMON::ERR::INSUFFICIENT_VALUE,
+        PROXY_COMMON::ERR::INSUFFICIENT_VALUE,
         msg_value >= WITHDRAW::INIT_FEE + fwd_fee
     );
     load_global_data();
@@ -154,7 +154,7 @@ global cell withdraw_code;
     int timestamp = in_msg_body~load_uint(64);
     slice response_address = in_msg_body~load_msg_addr();
     ;; check wallet address
-    throw_unless(COMMON::ERR::WRONG_CALLER, equal_slices(sender_address, utonic_minter_address));
+    throw_unless(PROXY_COMMON::ERR::WRONG_CALLER, equal_slices(sender_address, utonic_minter_address));
 
     debt_ton += ton_amount;
     save_global_data();
@@ -190,7 +190,7 @@ global cell withdraw_code;
     
     load_global_data();
 
-    throw_unless(COMMON::ERR::INSUFFICIENT_VALUE, msg_value >= PROXY_TON::WITHDRAW_FEE + fwd_fee);
+    throw_unless(PROXY_COMMON::ERR::INSUFFICIENT_VALUE, msg_value >= PROXY_TON::WITHDRAW_FEE + fwd_fee);
 
     int ton_amount = in_msg_body~load_coins();
     slice user_address = in_msg_body~load_msg_addr();
@@ -198,9 +198,9 @@ global cell withdraw_code;
     int withdraw_id = in_msg_body~load_uint(64);
     int balance_before_msg = my_ton_balance - msg_value;
     
-    throw_unless(COMMON::ERR::INSUFFICIENT_BALANCE, balance_before_msg - ton_amount >= PROXY_TON::MIN_TON_STORAGE);
+    throw_unless(PROXY_COMMON::ERR::INSUFFICIENT_BALANCE, balance_before_msg - ton_amount >= PROXY_TON::MIN_TON_STORAGE);
     throw_unless(
-        COMMON::ERR::WRONG_CALLER, 
+        PROXY_COMMON::ERR::WRONG_CALLER, 
         equal_slices(
             calculate_user_withdraw_address(
                 user_address, withdraw_id, my_address(), utonic_minter_address, withdraw_code
@@ -216,7 +216,7 @@ global cell withdraw_code;
         .store_slice(recipient_address)
         .store_coins(ton_amount)
         .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1);
-        ;; .store_uint(COMMON::OP::WITHDRAW_FUND, 32)
+        ;; .store_uint(PROXY_COMMON::OP::WITHDRAW_FUND, 32)
         ;; .store_uint(query_id, 64);
     send_raw_message(msg_withdraw_fund.end_cell(), 2 + 1);
 
@@ -258,12 +258,12 @@ global cell withdraw_code;
     int op = in_msg_body~load_uint(32);
     int query_id = in_msg_body~load_uint(64);
 
-    if (op == COMMON::OP::STAKE) {
+    if (op == PROXY_COMMON::OP::STAKE) {
         proxy_stake(query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
         return ();
     }
 
-    if (op == COMMON::OP::BURN_NOTIFICATION) {
+    if (op == PROXY_COMMON::OP::BURN_NOTIFICATION) {
         burn(query_id, sender_address, in_msg_body, balance, fwd_fee, msg_value);
         return ();
     }
@@ -275,17 +275,17 @@ global cell withdraw_code;
 
     ;; admin operate
 
-    if (op == COMMON::OP::UPDATE_ADMIN) {
+    if (op == PROXY_COMMON::OP::UPDATE_ADMIN) {
         load_global_data();
-        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        throw_unless(PROXY_COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         pending_admin_address = in_msg_body~load_msg_addr();
         save_global_data();
         return ();
     }
 
-    if (op == COMMON::OP::ACCEPT_ADMIN) {
+    if (op == PROXY_COMMON::OP::ACCEPT_ADMIN) {
         load_global_data();
-        throw_unless(COMMON::ERR::WRONG_CALLER, equal_slices(sender_address, pending_admin_address));
+        throw_unless(PROXY_COMMON::ERR::WRONG_CALLER, equal_slices(sender_address, pending_admin_address));
         admin_address = pending_admin_address;
         save_global_data();
         return ();
@@ -293,7 +293,7 @@ global cell withdraw_code;
 
     if (op == PROXY_TON::OP::UPDATE_RECEIVER) {
         load_global_data();
-        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        throw_unless(PROXY_COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         
         slice receiver = in_msg_body~load_msg_addr();
         ton_receiver_address = receiver;
@@ -303,17 +303,17 @@ global cell withdraw_code;
 
     if (op == PROXY_TON::OP::SEND_TON) {
         load_global_data();
-        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        throw_unless(PROXY_COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         int amount = in_msg_body~load_coins();
         slice response_address = in_msg_body~load_msg_addr();
-        throw_unless(COMMON::ERR::INSUFFICIENT_BALANCE, amount < balance - PROXY_TON::MIN_TON_STORAGE);
+        throw_unless(PROXY_COMMON::ERR::INSUFFICIENT_BALANCE, amount < balance - PROXY_TON::MIN_TON_STORAGE);
         _send_ton(query_id, amount, response_address, true);
         return ();
     }
 
     if (op == PROXY_TON::OP::UPDATE_WITHDRAW_PENDING_TIME) {
         load_global_data();
-        throw_unless(COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        throw_unless(PROXY_COMMON::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
         withdraw_pending_time = in_msg_body~load_uint(64);
         save_global_data();
         return ();

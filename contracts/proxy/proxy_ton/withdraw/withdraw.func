@@ -1,16 +1,16 @@
 #include "../../../imports/stdlib.fc";
 #include "../../../libs/libs_utils.func";
 
-#include "../../../common/common_op.func";
-#include "../../../common/common_utils.func";
-#include "../../../common/common_errors.func";
-
 #include "../../../standard/standard_op.func";
 
 #include "../../../minter/minter_params.func";
 
 #include "../proxy_ton_op.func";
 #include "../proxy_ton_params.func";
+
+#include "../../proxy_op.func";
+#include "../../proxy_utils.func";
+#include "../../proxy_errors.func";
 
 #include "withdraw_op.func";
 #include "withdraw_params.func";
@@ -71,7 +71,7 @@ global slice utonic_minter_address;
     uton_amount = coin_cell~load_coins();
     ton_amount = coin_cell~load_coins();
 
-    throw_unless(COMMON::ERR::WRONG_CALLER, equal_slices(proxy_address, sender_address));
+    throw_unless(PROXY_COMMON::ERR::WRONG_CALLER, equal_slices(proxy_address, sender_address));
 
     int ton_balance_before_msg = my_ton_balance - msg_value;
     int storage_fee = WITHDRAW::MIN_TON_STORAGE - min(ton_balance_before_msg, WITHDRAW::MIN_TON_STORAGE);
@@ -99,14 +99,14 @@ global slice utonic_minter_address;
     slice recipient_address = in_msg_body~load_msg_addr();
     slice response_address = in_msg_body~load_msg_addr();
 
-    throw_unless(COMMON::ERR::WRONG_CALLER, equal_slices(owner_address, sender_address));
-    throw_unless(COMMON::ERR::INVALID_TON_AMOUNT, ton_amount > 0);
+    throw_unless(PROXY_COMMON::ERR::WRONG_CALLER, equal_slices(owner_address, sender_address));
+    throw_unless(PROXY_COMMON::ERR::INVALID_TON_AMOUNT, ton_amount > 0);
 
     int ton_balance_before_msg = my_ton_balance - msg_value;
     int storage_fee = WITHDRAW::MIN_TON_STORAGE - min(ton_balance_before_msg, WITHDRAW::MIN_TON_STORAGE);
     msg_value -= (storage_fee + WITHDRAW::WITHDRAW_FEE + fwd_fee);
     throw_unless(
-        COMMON::ERR::INSUFFICIENT_VALUE, 
+        PROXY_COMMON::ERR::INSUFFICIENT_VALUE, 
         msg_value > MINTER::QUERY_FEE
             + fwd_fee
             + WITHDRAW::QUERY_ACK_FEE
@@ -119,7 +119,7 @@ global slice utonic_minter_address;
         .end_cell();
 
     var msg_body = begin_cell()
-        .store_uint(COMMON::OP::QUERY, 32)
+        .store_uint(PROXY_COMMON::OP::QUERY, 32)
         .store_uint(query_id, 64)
         .store_ref(payload)
         .end_cell();
@@ -139,7 +139,7 @@ global slice utonic_minter_address;
     load_global_data();
 
     throw_unless(WITHDRAW::ERR::FINISHED, finished == 0);
-    throw_unless(COMMON::ERR::WRONG_CALLER, equal_slices(utonic_minter_address, sender_address));
+    throw_unless(PROXY_COMMON::ERR::WRONG_CALLER, equal_slices(utonic_minter_address, sender_address));
 
     int query_id = in_msg_body~load_uint(64);
     int total_supply = in_msg_body~load_coins();
@@ -162,7 +162,7 @@ global slice utonic_minter_address;
     int storage_fee = WITHDRAW::MIN_TON_STORAGE - min(ton_balance_before_msg, WITHDRAW::MIN_TON_STORAGE);
     msg_value -= (storage_fee + WITHDRAW::QUERY_ACK_FEE + fwd_fee);
     throw_unless(
-        COMMON::ERR::INSUFFICIENT_VALUE, 
+        PROXY_COMMON::ERR::INSUFFICIENT_VALUE, 
         msg_value > PROXY_TON::WITHDRAW_FEE
     );
 
@@ -229,7 +229,7 @@ global slice utonic_minter_address;
         return ();
     }
 
-    if (op == COMMON::OP::QUERY_ACK) {
+    if (op == PROXY_COMMON::OP::QUERY_ACK) {
         query_ack(in_msg_body,sender_address,my_balance,fwd_fee,msg_value);
         return ();
     }
