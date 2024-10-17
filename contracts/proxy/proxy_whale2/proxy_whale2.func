@@ -1,16 +1,14 @@
 #include "../../imports/stdlib.fc";
 #include "../../libs/libs_utils.func";
 
-
-#include "../../standard/standard_op.func";
-
 #include "../../minter/minter_op.func";
 #include "../../minter/minter_params.func";
 #include "../../wallet/wallet_params.func";
 
-#include "../op.func";
-#include "../params.func";
-#include "../errors.func";
+#include "../proxy_op.func";
+#include "../proxy_standard_op.func";
+#include "../proxy_params.func";
+#include "../proxy_errors.func";
 
 #include "storage.func";
 #include "params.func";
