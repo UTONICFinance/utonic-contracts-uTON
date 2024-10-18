@@ -172,7 +172,7 @@ global slice pending_admin_address;
         int ton_amount = in_msg_body~load_coins();
         throw_unless(
             PROXY_COMMON::ERR::INSUFFICIENT_BALANCE, 
-            my_balance <= ton_amount
+            my_balance >= ton_amount
                 + fwd_fee
                 + PROXY_WHALE2::MIN_TON_STORAGE
         );
