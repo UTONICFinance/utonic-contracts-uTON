@@ -12,8 +12,8 @@
     int lc_finished = data_cell~load_uint(1);  
 
     slice coin_cell = data_cell~load_ref().begin_parse();
-    int lc_uton_amount = data_cell~load_coins();
-    int lc_ton_amount = data_cell~load_coins();
+    int lc_uton_amount = coin_cell~load_coins();
+    int lc_ton_amount = coin_cell~load_coins();
 
     slice address_cell = ds~load_ref().begin_parse();
     slice lc_owner_address = address_cell~load_msg_addr();
