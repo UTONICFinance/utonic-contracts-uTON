@@ -24,13 +24,13 @@ export default class ProxyTon implements Contract {
     const addressCell = beginCell()
       .storeAddress(utonicMinterAddress)
       .storeAddress(tonReceiver)
-      .storeDict(Dictionary.empty())
+      // .storeDict(Dictionary.empty())
       .endCell()
     
     const adminCell = beginCell()
       .storeAddress(adminAddress)
       .storeAddress(adminAddress)
-      .storeDict(Dictionary.empty())
+      // .storeDict(Dictionary.empty())
       .endCell()
 
     return beginCell()
