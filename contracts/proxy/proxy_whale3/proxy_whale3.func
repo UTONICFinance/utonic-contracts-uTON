@@ -62,6 +62,8 @@ global slice pending_admin_address;
 () proxy_stake(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
    
     load_global_data();
+    throw_unless(PROXY_COMMON::ERR::WRONG_CALLER, equal_slices(sender_address, whale_address));
+
     int ton_balance_before_msg = my_ton_balance - msg_value;
     int storage_fee = PROXY_WHALE3::MIN_TON_STORAGE - min(ton_balance_before_msg, PROXY_WHALE3::MIN_TON_STORAGE);
 
