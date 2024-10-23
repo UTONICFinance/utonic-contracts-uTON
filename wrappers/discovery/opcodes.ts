@@ -1,0 +1,3 @@
+
+export const OP_PROVIDE_WALLET_ADDRESS = 0x2c76b973;
+export const OP_TAKE_WALLET_ADDRESS = 0xd1735400;
