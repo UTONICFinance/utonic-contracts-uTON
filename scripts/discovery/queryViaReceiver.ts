@@ -28,7 +28,7 @@ export async function run() {
   const discoveryReceiver = new DiscoveryReceiver(discoveryReceiverAddress);
   const discoveryReceiverContract = client.open(discoveryReceiver);
   
-  const ownerAddress = Address.parse(config.ownerAddress); 
+  const ownerAddress = Address.parse(config.owner); 
   const includeAddress = config.include_address === 'true'; 
 
   await discoveryReceiverContract.sendQuery(walletSender, ownerAddress, includeAddress, "0.02");

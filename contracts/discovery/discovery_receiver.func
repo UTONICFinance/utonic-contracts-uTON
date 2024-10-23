@@ -61,6 +61,7 @@
             .end_cell();
 
         send_raw_message(msg, 64);
+        return ();
     }
 
     if (op == op::take_wallet_address()) {

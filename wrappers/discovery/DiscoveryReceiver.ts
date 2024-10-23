@@ -45,11 +45,11 @@ export default class DiscoveryReceiver implements Contract {
 
   async getReceiverData(provider: ContractProvider) {
     const { stack } = await provider.get("get_receiver_data", []);
-    const receiver = stack.readAddress();
+    const discovery = stack.readAddress();
     const wallet = stack.readAddress();
     const owner = stack.readAddress();
     return {
-        receiver,
+        discovery,
         wallet,
         owner
     };
