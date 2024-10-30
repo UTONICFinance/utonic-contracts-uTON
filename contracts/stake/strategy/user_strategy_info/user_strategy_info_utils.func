@@ -1,0 +1,77 @@
+#include "../../stake_params.func";
+
+#include "user_strategy_info_status.func";
+
+() pack_user_strategy_info_data(
+    int lc_shares,
+    int lc_status,
+    int lc_withdraw_cnt,
+    slice lc_user_address,
+    slice lc_strategy_address,
+    slice lc_operator_address
+) inline {
+    cell user_data = begin_cell()
+        .store_coins(lc_shares)
+        .store_uint(lc_status, 4)
+        .store_uint(lc_withdraw_cnt, 32)
+        .store_slice(lc_user_address)
+        .end_cell();
+    
+    cell meta_data = begin_cell()
+        .store_slice(lc_strategy_address)
+        .store_slice(lc_operator_address)
+        .end_cell();
+    
+    return begin_cell()
+        .store_ref(user_data)
+        .store_ref(meta_data)
+        .end_cell();
+}
+
+
+cell calculate_user_strategy_info_state_init(
+    slice lc_user_address,
+    slice lc_strategy_address,
+    cell lc_user_strategy_info_code
+) inline {
+  return begin_cell()
+    .store_uint(0, 2)
+    .store_dict(lc_user_strategy_info_code)
+    .store_dict(pack_user_strategy_info_data(
+        0,
+        USER_STRATEGY_INFO::STATUS::NO_DELEGATE,
+        0,
+        lc_user_address,
+        lc_strategy_address,
+        ;; init non-operator address
+        lc_strategy_address
+    ))
+    .store_uint(0, 1)
+  .end_cell();
+}
+
+slice calculate_user_strategy_info_address_by_state_init(cell state_init) inline {
+  return begin_cell()
+    .store_uint(4, 3)
+    .store_int(STAKE::WORKCHAIN, 8)
+    .store_uint(cell_hash(state_init), 256)
+  .end_cell().begin_parse();
+}
+
+slice calculate_user_strategy_info_address(
+    slice lc_user_address,
+    slice lc_strategy_address,
+    cell lc_user_strategy_info_code
+) inline {
+    return calculate_user_strategy_info_address_by_state_init(
+        calculate_user_strategy_info_state_init(
+            lc_shares,
+            lc_status,
+            lc_withdraw_cnt,
+            lc_user_address,
+            lc_strategy_address,
+            lc_operator_address,
+            lc_user_strategy_info_code
+        )
+    );
+}

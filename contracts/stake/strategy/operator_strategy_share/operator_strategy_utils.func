@@ -1,0 +1,53 @@
+#include "../../stake_params.func";
+
+() pack_operator_stratey_share_data(
+    int lc_shares,
+    slice lc_operator_address,
+    slice lc_strategy_address
+) inline {
+    
+    return begin_cell()
+        .store_coins(lc_shares)
+        .store_slice(lc_operator_address)
+        .store_slice(lc_strategy_address)
+        .end_cell();
+}
+
+cell calculate_operator_strategy_share_state_init(
+    slice lc_operator_address,
+    slice lc_strategy_address,
+    cell lc_operator_strategy_share_code
+) inline {
+  return begin_cell()
+    .store_uint(0, 2)
+    .store_dict(lc_operator_strategy_share_code)
+    .store_dict(pack_operator_stratey_share_data(
+        0,
+        lc_operator_address,
+        lc_strategy_address
+    ))
+    .store_uint(0, 1)
+  .end_cell();
+}
+
+slice calculate_operator_strategy_share_address_by_state_init(cell state_init) inline {
+  return begin_cell()
+    .store_uint(4, 3)
+    .store_int(STAKE::WORKCHAIN, 8)
+    .store_uint(cell_hash(state_init), 256)
+  .end_cell().begin_parse();
+}
+
+slice calculate_operator_strategy_share_address(
+    slice lc_operator_address,
+    slice lc_strategy_address,
+    cell lc_operator_strategy_share_code
+) inline {
+    return calculate_operator_strategy_share_address_by_state_init(
+        calculate_operator_strategy_share_state_init(
+            lc_operator_address,
+            lc_strategy_address,
+            lc_operator_strategy_share_code
+        )
+    );
+}

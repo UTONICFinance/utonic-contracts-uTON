@@ -1,0 +1,42 @@
+#include "./user_strategy_info_utils.func";
+
+(int, int, int, slice, slice, cell) load_data() inline {
+    slice ds = get_data().begin_parse();
+    slice user_data = ds~load_ref().begin_parse();
+    int lc_shares = user_data.load_coins();
+    int lc_status = user_data.load_uint(4);
+    int lc_withdraw_cnt = user_data.load_uint(32);
+    slice lc_user_address = user_data.load_msg_addr();
+    slice meta_data = ds~load_ref().begin_parse();
+    slice lc_strategy_address = meta_data.load_msg_addr();
+    slice lc_operator_address = meta_data.load_msg_addr();
+
+    return (
+        lc_shares,
+        lc_status,
+        lc_withdraw_cnt,
+        lc_user_address,
+        lc_strategy_address,
+        lc_operator_address
+    );
+}
+
+() save_data (
+    int lc_shares,
+    int lc_status,
+    int lc_withdraw_cnt,
+    slice lc_user_address,
+    slice lc_strategy_address,
+    slice lc_operator_address
+) impure inline {
+    set_data(
+        pack_user_strategy_info_data(
+            lc_shares, 
+            lc_status, 
+            lc_withdraw_cnt,
+            lc_user_address, 
+            lc_strategy_address, 
+            lc_operator_address
+        )
+    );
+}

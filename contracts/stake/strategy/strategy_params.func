@@ -1,0 +1,71 @@
+
+#include "../utonic_manager/utonic_manager_params.func";
+#include "./operator_strategy_share/operator_strategy_share_params.func";
+#include "./withdraw/strategy_withdraw_params.func";
+
+const int STRATEGY::DELEGATE_FEE = 10000000;
+const int STRATEGY::UNDELEGATE_FEE = 10000000;
+const int STRATEGY::BURN_FEE = 10000000;
+const int STRATEGY::DEPOSIT_ACK_FEE = 10000000;
+const int STRATEGY::WITHDRAW_TON_FEE = 10000000;
+const int STRATEGY::WITHDRAW_JETTON_FEE = 10000000;
+
+const int STRATEGY::QUERY_OPERATOR_ACK_FEE = 10000000;
+const int STRATEGY::UPDATE_OPERATOR_ACK_FEE = 10000000;
+
+const int STRATEGY::ADMIN_UPDATE_OPERATOR_FEE = 10000000;
+const int STRATEGY::ADMIN_CANCEL_USER_PENDING_FEE = 10000000;
+
+(int) update_operator_share_cycle_fee(int fwd_fee) {
+    int fee = OPERATOR_STRATEGY_SHARE::UPDATE_FEE
+        + OPERATOR_STRATEGY_SHARE::DEPLOY_FEE ;; operator_strategy_share may not exists
+        + OPERATOR_STRATEGY_SHARE::MIN_TON_STORAGE;
+    return fee;
+}
+
+(int) update_operator_share_route_fee(int fwd_fee) {
+    int fee = OPERATOR_STRATEGY_SHARE::UPDATE_FEE
+        + OPERATOR_STRATEGY_SHARE::DEPLOY_FEE ;; operator_strategy_share may not exists
+    return fee;
+}
+
+(int) undelegate_cycle_fee(int fwd_fee) {
+    int fee = STRATEGY::UNDELEGATE_FEE
+        + query_operator_register_cycle_fee(fwd_fee)
+        + fwd_fee * 2
+        + STRATEGY::QUERY_OPERATOR_ACK_FEE
+        + update_operator_share_cycle_fee(fwd_fee)
+        + fwd_fee * 2
+        + STRATEGY::UPDATE_OPERATOR_ACK_FEE;
+    return fee;
+}
+
+(int) deposit_ack_route_fee(int fwd_fee) {
+    int fee = STRATEGY::DEPOSIT_ACK_FEE
+        + OPERATOR_STRATEGY_SHARE::DEPLOY_FEE
+        + OPERATOR_STRATEGY_SHARE::UPDATE_FEE
+        + OPERATOR_STRATEGY_SHARE::MIN_TON_STORAGE
+        + fwd_fee;
+    return fee;
+}
+
+
+(int) burn_route_fee(int fwd_fee) {
+    int fee = STRATEGY::BURN_FEE
+        + WITHDRAW::DEPLOY_FEE
+        + WITHDRAW::INIT_FEE
+        + WITHDRAW::MIN_TON_STORAGE
+        + fwd_fee;
+    return fee;
+}
+
+(int) withdraw_ton_fee(int fwd_fee) {
+    int fee = STRATEGY::WITHDRAW_TON_FEE
+        + fwd_fee;
+}
+
+(int) withdraw_jetton_fee(int fwd_fee) {
+    int fee = STRATEGY::WITHDRAW_JETTON_FEE
+        + STRATEGY::TRANSFER_JETTON_FEE
+        + fwd_fee;
+}

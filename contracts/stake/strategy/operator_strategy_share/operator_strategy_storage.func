@@ -1,0 +1,25 @@
+#include "operator_strategy_utils.func";
+
+(int, slice, slice) load_data() inline {
+    slice ds = get_data().begin_parse();
+    
+    return (
+        ds~load_coins(),
+        ds~load_msg_addr(),
+        ds~load_msg_addr()
+    );
+}
+
+() save_data (
+    int lc_shares,
+    slice lc_operator_address,
+    slice lc_strategy_address
+) impure inline {
+    set_data(
+        pack_operator_stratey_share_data(
+            lc_shares,
+            lc_operator_address,
+            lc_strategy_address
+        )
+    );
+}

@@ -1,0 +1,15 @@
+#include "../standard/standard_op.func";
+#include "./stake_params.func";
+
+() refund_fee(int query_id, slice response_address, int msg_value) {
+    if ((response_address.preload_uint(2) != 0) & (msg_value > 0)) {
+        var msg_excesses = begin_cell()
+            .store_uint(0x10, 6)
+            .store_slice(response_address)
+            .store_coins(msg_value)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_uint(OP::EXCESSES, 32)
+            .store_uint(query_id, 64);
+        send_raw_message(msg_excesses.end_cell(), 2);
+    }
+}
