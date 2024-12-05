@@ -29,7 +29,7 @@ export async function run() {
   const proxyWhale3 = new ProxyWhale3(proxyWhale3Address);
   const proxyWhale3Contract = client.open(proxyWhale3);
 
-  await proxyWhale3Contract.sendStake(walletSender, 1, stakeAmount, wallet.address, "0.02");
+  await proxyWhale3Contract.sendStake(walletSender, 1, stakeAmount, wallet.address, "0.5");
 
   // wait until confirmed
   let currentSeqno = seqno;
