@@ -1,0 +1,25 @@
+#include "../../imports/stdlib.fc";
+
+const OPERATOR_REGISTER::EVENT::CODE_BASE = 0x31000;
+
+const OPERATOR_REGISTER::EVENT::REGISTER_SUCCESS = OPERATOR_REGISTER::EVENT::CODE_BASE + 1;
+
+() emit_operator_register_success_log(slice operator_address, slice operator_register_address, int timestamp) impure {
+
+    var msg_body = begin_cell()
+        .store_uint(OPERATOR_REGISTER::EVENT::REGISTER_SUCCESS, 32)
+        .store_slice(operator_address)
+        .store_slice(operator_register_address)
+        .store_uint(timestamp, 64)
+        .end_cell();
+
+    var msg = begin_cell()
+        .store_uint (12, 4)             ;; ext_out_msg_info$11 addr$00
+        .store_uint (0, 2)              ;; dest addr$00
+        .store_uint(1, 64 + 32 + 1 + 1) ;; lt, at, init, body
+        .store_ref(msg_body)
+        .end_cell();
+    
+    send_raw_message(msg, 0);
+
+}

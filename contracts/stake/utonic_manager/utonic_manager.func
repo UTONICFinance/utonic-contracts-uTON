@@ -1,0 +1,344 @@
+#include "../imports/stdlib.fc";
+
+#include "../stake_errors.func";
+#include "../stake_op.func";
+#include "../stake_utils.func";
+
+
+#include "operator_register/operator_register_utils.func";
+
+#include "utonic_manager_params.func";
+#include "utonic_manager_op.func";
+#include "utonic_manager_storage.func";
+#include "utonic_manager_events.func";
+
+global slice admin_address;
+global slice pending_admin_address;
+global cell operator_register_code;
+
+() load_global_data() impure inline {
+    (admin_address, 
+    pending_admin_address,
+    operator_register_code) = load_data();
+}
+
+() save_global_data() impure inline {
+    save_data(
+        admin_address, 
+        pending_admin_address,
+        operator_register_code);
+}
+
+() query(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
+   
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    ;; storage_fee is usually 0 when contract has enough balance
+    int storage_fee = UTONIC_MANAGER::MIN_TON_STORAGE - min(ton_balance_before_msg, UTONIC_MANAGER::MIN_TON_STORAGE);
+
+    throw_unless(
+        STAKE::ERR::INSUFFICIENT_VALUE, 
+        msg_value >= storage_fee
+            + query_operator_register_cycle_fee(fwd_fee)
+            + fwd_fee
+            ;; no need to check remain gas
+    );
+
+    load_global_data();
+
+    ;; no need to check strategy address
+    ;; int strategy_id = in_msg_body~load_uint(32);
+    ;; _check_strategy(strategy_id, sender_address);
+
+    slice operator_address = in_msg_body~load_msg_addr();
+    slice response_address = in_msg_body~load_msg_addr();
+
+    cell state_init = calculate_operator_register_state_init(
+        operator_address,
+        my_address(),
+        operator_register_code
+    );
+    slice operator_register_address = calculate_operator_register_address_by_state_init(state_init);   
+
+    cell in_extra_payload = in_msg_body~load_ref();
+    cell out_extra_payload = begin_cell()
+        ;; store strategy and response address for query_ack
+        .store_slice(sender_address)
+        .store_slice(response_address)
+        .store_ref(in_extra_payload)
+        .end_cell();
+
+    int remain_msg_value = msg_value
+        - storage_fee
+        - UTONIC_MANAGER::QUERY_OPERATOR_FEE;
+
+    ;; then send query msg to operator_register
+    var query_msg_body = begin_cell()
+        .store_uint(STAKE::OP::QUERY, 32)
+        .store_uint(query_id, 64)
+        .store_ref(out_extra_payload)
+        .end_cell();
+    
+    var query_msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(operator_register_address)
+        .store_coins(remain_msg_value)
+        .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+        .store_ref(state_init)
+        .store_ref(query_msg_body);
+    send_raw_message(query_msg.end_cell(), 0);
+}
+
+() query_ack(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
+   
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    ;; storage_fee is usually 0 when contract has enough balance
+    int storage_fee = UTONIC_MANAGER::MIN_TON_STORAGE - min(ton_balance_before_msg, UTONIC_MANAGER::MIN_TON_STORAGE);
+
+    throw_unless(
+        STAKE::ERR::INSUFFICIENT_VALUE, 
+        msg_value >= storage_fee
+            + UTONIC_MANAGER::QUERY_OPERATOR_ACK_FEE
+            + fwd_fee
+            ;; no need to check remain gas
+    );
+
+    load_global_data();
+    int operator_status = in_msg_body~load_uint(2);
+    slice operator_address = in_msg_body~load_msg_addr();
+
+    slice operator_register_address = calculate_operator_register_address(
+        operator_address,
+        my_address(),
+        operator_register_code
+    );   
+
+    throw_unless(
+        STAKE::ERR::WRONG_CALLER, 
+        equal_slices(
+            operator_register_address, 
+            sender_address
+        )
+    );
+
+    slice in_extra_payload = in_msg_body~load_ref().begin_parse();
+    slice strategy_address = in_extra_payload~load_msg_addr();
+    slice response_address = in_extra_payload~load_msg_addr();
+    cell extra_payload = in_extra_payload~load_ref();
+
+    int remain_msg_value = msg_value
+        - storage_fee
+        - UTONIC_MANAGER::QUERY_OPERATOR_FEE
+        - fwd_fee;
+
+    ;; then send query msg to operator_register
+    var query_msg_body = begin_cell()
+        .store_uint(STAKE::OP::QUERY_ACK, 32)
+        .store_uint(query_id, 64)
+        .store_uint(operator_status, 2)
+        .store_slice(operator_address)
+        .store_slice(response_address)
+        .store_ref(extra_payload)
+        .end_cell();
+    
+    int remain_msg_value = msg_value
+        - storage_fee
+        - UTONIC_MANAGER::QUERY_OPERATOR_ACK_FEE;
+    var query_msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(strategy_address)
+        .store_coins(remain_msg_value)
+        .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_ref(query_msg_body);
+    send_raw_message(query_msg.end_cell(), 0);
+}
+
+() switch_operator_status(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
+    
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    ;; storage_fee is usually 0 when contract has enough balance
+    int storage_fee = UTONIC_MANAGER::MIN_TON_STORAGE - min(ton_balance_before_msg, UTONIC_MANAGER::MIN_TON_STORAGE);
+
+    throw_unless(
+        STAKE::ERR::INSUFFICIENT_VALUE, 
+        msg_value >= storage_fee
+            + UTONIC_MANAGER::SWITCH_FEE
+            + fwd_fee
+            + OPERATOR_REGISTER::SWITCH_FEE
+            + fwd_fee ;; for event
+    );
+
+    load_global_data();
+    throw_unless(
+        STAKE::ERR::UNAUTHORIZED, 
+        equal_slices(
+            admin_address, 
+            sender_address
+        )
+    );
+
+    int is_baned = in_msg_body~load_uint(1);
+    slice operator_address = in_msg_body~load_msg_addr();
+    slice operator_register_address = calculate_operator_register_address(
+        operator_address,
+        my_address(),
+        operator_register_code
+    );
+    slice response_address = in_msg_body~load_msg_addr();
+
+    ;; send to proxy
+    var msg_body = begin_cell()
+        .store_uint(UTONIC_MANAGER::OP::SWITCH_OPERATOR_STATUS, 32)
+        .store_uint(query_id, 64)
+        .store_uint(is_baned, 1)
+        .store_slice(response_address)
+    .end_cell();
+
+    int remain_msg_value = msg_value
+        - storage_fee
+        - UTONIC_MANAGER::SWITCH_FEE
+        - fwd_fee; ;; for event
+
+    var msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(operator_register_address)
+        ;; todo determine msg value for burn notification
+        .store_coins(remain_msg_value)
+        .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_ref(msg_body);
+    send_raw_message(msg.end_cell(), 0);
+    emit_operator_switch_log(operator_address, operator_register_address, is_baned, now());
+}
+
+() register(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
+    
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    ;; storage_fee is usually 0 when contract has enough balance
+    int storage_fee = UTONIC_MANAGER::MIN_TON_STORAGE - min(ton_balance_before_msg, UTONIC_MANAGER::MIN_TON_STORAGE);
+
+    throw_unless(
+        STAKE::ERR::INSUFFICIENT_VALUE, 
+        msg_value >= storage_fee
+            + UTONIC_MANAGER::REGISTER_FEE
+            + fwd_fee
+            + register_fee(fwd_fee)
+            + fwd_fee
+    );
+
+    load_global_data();
+    slice response_address = in_msg_body~load_msg_addr();
+    slice operator_address = sender_address;
+    cell state_init = calculate_operator_register_state_init(
+        operator_address,
+        my_address(),
+        operator_register_code
+    );
+    slice operator_register_address = calculate_operator_register_address_by_state_init(state_init);   
+
+    int remain_msg_value = msg_value
+        - storage_fee
+        - UTONIC_MANAGER::REGISTER_FEE
+        - fwd_fee; ;; for event
+
+    ;; then send init msg to operator_register
+    var init_msg_body = begin_cell()
+        .store_uint(STAKE::OP::INIT, 32)
+        .store_uint(query_id, 64)
+        .store_slice(response_address)
+        .end_cell();
+    
+    var init_msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(operator_register_address)
+        .store_coins(remain_msg_value)
+        .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+        .store_ref(state_init)
+        .store_ref(init_msg_body);
+    send_raw_message(init_msg.end_cell(), 0);
+    emit_operator_register_log(operator_address, operator_register_address, now());
+}
+
+() recv_internal(int balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+
+    if (flags & 1) { 
+        return ();
+    }
+    slice sender_address = cs~load_msg_addr();
+    cs~load_msg_addr();
+    cs~load_coins();
+    cs~skip_bits(1);
+    cs~load_coins();
+    int fwd_fee = cs~load_coins();
+
+    if (in_msg_body.slice_empty?()) {
+        ;; just deposit
+        return ();
+    }
+
+    int op = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+
+    if (op == STAKE::OP::QUERY) {
+        query(query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    if (op == STAKE::OP::QUERY_ACK) {
+        query_ack(query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    if (op == UTONIC_MANAGER::OP::REGISTER) {
+        register(query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    ;; admin operate
+    if (op == UTONIC_MANAGER::OP::SWITCH_OPERATOR_STATUS) {
+        switch_operator_status(query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    if (op == STAKE::OP::ADMIN_UPDATE_ADMIN) {
+        load_global_data();
+        throw_unless(STAKE::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        pending_admin_address = in_msg_body~load_msg_addr();
+        save_global_data();
+        return ();
+    }
+
+    if (op == STAKE::OP::ADMIN_ACCEPT_ADMIN) {
+        load_global_data();
+        throw_unless(STAKE::ERR::WRONG_CALLER, equal_slices(sender_address, pending_admin_address));
+        admin_address = pending_admin_address;
+        save_global_data();
+        return ();
+    }
+
+    if (op == STAKE::OP::ADMIN_UPDATE_CODE) {
+        load_global_data();
+        throw_unless(STAKE::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        cell code = in_msg_body~load_ref();
+        set_code(code);
+        return ();
+    }
+
+    throw(0xffff);
+
+}
+
+
+(slice, slice, cell) get_utonic_manager_data() method_id {
+    load_global_data();
+    return (
+        admin_address,
+        pending_admin_address,
+        operator_register_code
+    );
+}
+
+slice get_operator_register_address(slice operator_address) method_id {
+    load_global_data();
+    return calculate_operator_register_address(operator_address, my_address(), operator_register_code);
+}

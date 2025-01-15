@@ -1,0 +1,76 @@
+#include "../../stake_params.func";
+
+cell pack_strategy_withdraw_data(
+    int lc_shares,
+    int lc_withdraw_id,
+    int lc_burn_timestamp,
+    int lc_earliest_withdraw_timestamp,
+    int lc_finished,
+    slice lc_owner_address,
+    slice lc_strategy_address
+) inline {
+    cell data_cell = begin_cell()
+        .store_coins(lc_shares)
+        .store_uint(lc_withdraw_id, 64)
+        .store_uint(lc_burn_timestamp, 64)
+        .store_uint(lc_earliest_withdraw_timestamp, 64)
+        .store_uint(lc_finished, 1)
+        .end_cell();
+    
+    cell address_cell = begin_cell()
+        .store_slice(lc_owner_address)
+        .store_slice(lc_strategy_address)
+        .end_cell();
+    
+    return begin_cell()
+        .store_ref(data_cell)
+        .store_ref(address_cell)
+        .end_cell();
+}
+
+
+cell calculate_strategy_withdraw_state_init(
+    int lc_withdraw_id,
+    slice lc_owner_address,
+    slice lc_strategy_address,
+    cell lc_withdraw_code
+) inline {
+  return begin_cell()
+    .store_uint(0, 2)
+    .store_dict(lc_withdraw_code)
+    .store_dict(pack_strategy_withdraw_data(
+        0,
+        lc_withdraw_id,
+        0,
+        0,
+        0,
+        lc_owner_address,
+        lc_strategy_address
+    ))
+    .store_uint(0, 1)
+  .end_cell();
+}
+
+slice calculate_strategy_withdraw_address_by_state_init(cell state_init) inline {
+  return begin_cell()
+    .store_uint(4, 3)
+    .store_int(STAKE::WORKCHAIN, 8)
+    .store_uint(cell_hash(state_init), 256)
+  .end_cell().begin_parse();
+}
+
+slice calculate_strategy_withdraw_address(
+    int lc_withdraw_id,
+    slice lc_owner_address,
+    slice lc_strategy_address,
+    cell lc_withdraw_code
+) inline {
+    return calculate_strategy_withdraw_address_by_state_init(
+        calculate_strategy_withdraw_state_init(
+            lc_withdraw_id,
+            lc_owner_address,
+            lc_strategy_address,
+            lc_withdraw_code
+        )
+    );
+}

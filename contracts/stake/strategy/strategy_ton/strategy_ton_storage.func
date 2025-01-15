@@ -1,0 +1,112 @@
+
+cell pack_strategy_ton_data (
+    int lc_strategy_id,
+    int lc_withdraw_pending_time,
+    int lc_total_shares,
+    int lc_debt_token,
+    slice lc_utonic_manager_address,
+    slice lc_ton_receiver_address,
+    slice lc_admin_address,
+    slice lc_pending_admin_address,
+    cell lc_user_strategy_info_code,
+    cell lc_operator_strategy_share_code,
+    cell lc_withdraw_code
+) inline {
+
+    cell data_cell = begin_cell()
+        .store_uint(lc_strategy_id, 32)
+        .store_uint(lc_withdraw_pending_time, 64)
+        .store_coins(lc_total_shares)
+        .store_coins(lc_debt_token)
+        .end_cell();
+    
+    cell admin_cell = begin_cell()
+        .store_slice(lc_admin_address)
+        .store_slice(lc_pending_admin_address)
+        .end_cell();
+    
+    cell address_cell = begin_cell()
+        .store_slice(lc_utonic_manager_address)
+        .store_slice(lc_ton_receiver_address)
+        .store_ref(admin_cell)
+        .end_cell();
+    
+    cell code_cell = begin_cell()
+        .store_ref(lc_user_strategy_info_code)
+        .store_ref(lc_operator_strategy_share_code)
+        .store_ref(lc_withdraw_code)
+        .end_cell();
+    
+    return begin_cell()
+        .store_ref(data_cell)
+        .store_ref(address_cell)
+        .store_ref(code_cell)
+        .end_cell();
+}
+
+(int, int, int, int, slice, slice, slice, slice, cell, cell, cell) load_data() inline {
+    slice ds = get_data().begin_parse();
+
+    slice data_cell = ds~load_ref().begin_parse();
+    int lc_strategy_id = data_cell~load_uint(32);
+    int lc_withdraw_pending_time = data_cell~load_uint(64);
+    int lc_total_shares = data_cell~load_coins();
+    int lc_debt_token = data_cell~load_coins();
+
+    slice address_cell = ds~load_ref().begin_parse();
+    slice lc_utonic_manager_address = address_cell~load_msg_addr();
+    slice lc_ton_receiver_address = address_cell~load_msg_addr();
+    
+    slice admin_cell = address_cell~load_ref().begin_parse();
+    slice lc_admin_address = admin_cell~load_msg_addr();
+    slice lc_pending_admin_address = admin_cell~load_msg_addr();
+    
+    slice code_cell = ds~load_ref().begin_parse();
+    cell lc_user_strategy_info_code = code_cell~load_ref();
+    cell lc_operator_strategy_share_code = code_cell~load_ref();
+    cell lc_withdraw_code = code_cell~load_ref();
+    
+    return (
+        lc_strategy_id,
+        lc_withdraw_pending_time,
+        lc_total_shares,
+        lc_debt_token,
+        lc_utonic_manager_address,
+        lc_ton_receiver_address,
+        lc_admin_address,
+        lc_pending_admin_address,
+        lc_user_strategy_info_code,
+        lc_operator_strategy_share_code,
+        lc_withdraw_code
+    );
+}
+
+() save_data (
+    int lc_strategy_id,
+    int lc_withdraw_pending_time,
+    int lc_total_shares,
+    int lc_debt_token,
+    slice lc_utonic_manager_address,
+    slice lc_ton_receiver_address,
+    slice lc_admin_address,
+    slice lc_pending_admin_address,
+    cell lc_user_strategy_info_code,
+    cell lc_operator_strategy_share_code,
+    cell lc_withdraw_code
+) impure inline {
+    set_data(
+        pack_strategy_ton_data(
+            lc_strategy_id,
+            lc_withdraw_pending_time,
+            lc_total_shares,
+            lc_debt_token,
+            lc_utonic_manager_address,
+            lc_ton_receiver_address,
+            lc_admin_address,
+            lc_pending_admin_address,
+            lc_user_strategy_info_code,
+            lc_operator_strategy_share_code,
+            lc_withdraw_code
+        )
+    );
+}

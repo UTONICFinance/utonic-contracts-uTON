@@ -1,0 +1,2 @@
+
+const OPT_REG::OP::CODE_BASE = 0x31000;

@@ -1,0 +1,19 @@
+#include "./operator_register/operator_register_params.func";
+
+const int UTONIC_MANAGER::QUERY_OPERATOR_FEE = 10000000;
+const int UTONIC_MANAGER::QUERY_OPERATOR_ACK_FEE = 10000000;
+const int UTONIC_MANAGER::SWITCH_FEE = 10000000;
+const int UTONIC_MANAGER::REGISTER_FEE = 10000000;
+const int UTONIC_MANAGER::UPDATE_ADMIN_FEE = 10000000;
+const int UTONIC_MANAGER::ACCEPT_ADMIN_FEE = 10000000;
+const int UTONIC_MANAGER::MIN_TON_STORAGE = 10000000;
+
+(int) query_operator_register_cycle_fee(int fwd_fee) {
+    int fee = UTONIC_MANAGER::QUERY_OPERATOR_FEE
+        + UTONIC_MANAGER::QUERY_OPERATOR_ACK_FEE
+        + OPERATOR_REGISTER::QUERY_FEE
+        + OPERATOR_REGISTER::DEPLOY_FEE ;; operator_register may not exists
+        + OPERATOR_REGISTER::MIN_TON_STORAGE
+        + fwd_fee * 2;
+    return fee;
+}

@@ -1,0 +1,56 @@
+#include "../../../imports/stdlib.fc";
+#include "../../stake_params.func";
+#include "operator_register_params.func";
+
+cell pack_operator_register_data(
+    int lc_operator_register_status,
+    slice lc_operator_address,
+    slice lc_utonic_manager_address
+) inline {
+    
+    return begin_cell()
+        .store_uint(lc_operator_register_status, 2)
+        .store_slice(lc_operator_address)
+        .store_slice(lc_utonic_manager_address)
+        .end_cell();
+}
+
+
+cell calculate_operator_register_state_init(
+    slice lc_operator_address,
+    slice lc_utonic_manager_address,
+    cell lc_operator_register_code
+) inline {
+  return begin_cell()
+    .store_uint(0, 2)
+    .store_dict(lc_operator_register_code)
+    .store_dict(pack_operator_register_data(
+        OPERATOR_REGISTER::STATUS_NOT_INITED,
+        lc_operator_address,
+        lc_utonic_manager_address
+    ))
+    .store_uint(0, 1)
+  .end_cell();
+}
+
+slice calculate_operator_register_address_by_state_init(cell state_init) inline {
+  return begin_cell()
+    .store_uint(4, 3)
+    .store_int(STAKE::WORKCHAIN, 8)
+    .store_uint(cell_hash(state_init), 256)
+  .end_cell().begin_parse();
+}
+
+slice calculate_operator_register_address(
+    slice lc_operator_address,
+    slice lc_utonic_manager_address,
+    cell lc_operator_register_code
+) inline {
+    return calculate_operator_register_address_by_state_init(
+        calculate_operator_register_state_init(
+            lc_operator_address,
+            lc_utonic_manager_address,
+            lc_operator_register_code
+        )
+    );
+}

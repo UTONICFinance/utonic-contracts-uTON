@@ -1,0 +1,925 @@
+
+#include "../../standard/standard_op.func";
+#include "../../stake_utils.func";
+#include "../../stake_errors.func";
+#include "../../stake_op.func";
+#include "../operator_strategy_share/operator_strategy_share_utils.func";
+#include "../operator_strategy_share/operator_strategy_share_params.func";
+#include "../user_strategy_info/user_strategy_info_params.func";
+#include "../user_strategy_info/user_strategy_info_utils.func";
+
+#include "../withdraw/strategy_withdraw_params.func";
+#include "../withdraw/strategy_withdraw_utils.func";
+
+#include "../strategy_op.func";
+#include "../strategy_params.func";
+
+#include "strategy_ton_params.func";
+#include "strategy_ton_storage.func";
+
+
+global int strategy_id;
+global int withdraw_pending_time;
+global int total_shares;
+global int debt_token;
+global slice utonic_manager_address;
+global slice ton_receiver_address;
+global slice admin_address;
+global slice pending_admin_address;
+global cell user_strategy_info_code;
+global cell operator_strategy_share_code;
+global cell withdraw_code;
+
+() load_global_data() impure inline {
+    (
+        strategy_id,
+        withdraw_pending_time,
+        total_shares,
+        debt_token,
+        utonic_manager_address,
+        ton_receiver_address,
+        admin_address,
+        pending_admin_address,
+        user_strategy_info_code,
+        operator_strategy_share_code,
+        withdraw_code
+    ) = load_data();
+}
+
+() save_global_data() impure inline {
+    save_data(
+        strategy_id,
+        withdraw_pending_time,
+        total_shares,
+        debt_token,
+        utonic_manager_address,
+        ton_receiver_address,
+        admin_address,
+        pending_admin_address,
+        user_strategy_info_code,
+        operator_strategy_share_code,
+        withdraw_code
+    );
+}
+
+
+() _send_ton(slice receiver_address, int amount) impure {
+    var msg_send_ton = begin_cell()
+        .store_uint(0x10, 6)
+        .store_slice(receiver_address)
+        .store_coins(amount)
+        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1);
+    send_raw_message(msg_send_ton.end_cell(), 2 + 1);
+}
+
+
+() init_user_info(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
+
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    ;; storage_fee is usually 0 when contract has enough balance
+    int storage_fee = STRATEGY_TON::MIN_TON_STORAGE - min(ton_balance_before_msg, STRATEGY_TON::MIN_TON_STORAGE);
+    ;; check msg_value for init user info
+    throw_unless(
+        STAKE::ERR::INSUFFICIENT_VALUE, 
+        msg_value > storage_fee
+            + STRATEGY::INIT_USER_INFO_FEE
+            + fwd_fee
+            + user_strategy_info_init_fee(fwd_fee)
+    );
+
+    int remain_msg_value = msg_value 
+        - storage_fee
+        - STRATEGY::INIT_USER_INFO_FEE
+        - fwd_fee;
+
+    slice response_address = in_msg_body~load_msg_addr();
+    ;; then send deposit msg to user_strategy_info
+    var init_msg_body = begin_cell()
+        .store_uint(STAKE::OP::INIT, 32)
+        .store_uint(query_id, 64)
+        .store_slice(response_address)
+        .end_cell();
+
+    load_global_data();
+    slice user_address = sender_address;
+    cell state_init = calculate_user_strategy_info_state_init(
+        user_address,
+        my_address(),
+        user_strategy_info_code
+    );
+    slice user_strategy_info_address = calculate_user_strategy_info_address_by_state_init(state_init);
+    var msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(user_strategy_info_address)
+        .store_coins(remain_msg_value)
+        .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+        .store_ref(state_init)
+        .store_ref(init_msg_body);
+    send_raw_message(msg.end_cell(), 1);
+
+}
+
+() deposit(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
+    
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    int storage_fee = STRATEGY_TON::MIN_TON_STORAGE - min(ton_balance_before_msg, STRATEGY_TON::MIN_TON_STORAGE);
+
+    int estimate_fee = storage_fee
+        + STRATEGY_TON::DEPOSIT_FEE 
+        + fwd_fee
+        + user_strategy_info_deposit_cycle_fee(fwd_fee)
+        + fwd_fee
+        + deposit_ack_route_fee(fwd_fee);
+    
+    int shares = in_msg_body~load_coins();
+    throw_unless(
+        STAKE::ERR::INSUFFICIENT_VALUE, 
+        msg_value - estimate_fee >= shares
+    );
+    
+    load_global_data();
+
+    slice user_address = sender_address;
+    slice response_address = in_msg_body~load_msg_addr();
+
+    _send_ton(ton_receiver_address, shares);
+
+    total_shares += shares;
+    save_global_data();
+
+    int remain_msg_value = msg_value 
+        - storage_fee
+        - STRATEGY_TON::DEPOSIT_FEE 
+        - fwd_fee
+        - shares
+        - fwd_fee;
+
+    ;; then send deposit msg to user_strategy_info
+    var deposit_msg_body = begin_cell()
+        .store_uint(STAKE::OP::DEPOSIT, 32)
+        .store_uint(query_id, 64)
+        .store_coins(shares)
+        .store_slice(response_address)
+        .end_cell();
+    
+    cell state_init = calculate_user_strategy_info_state_init(
+        user_address,
+        my_address(),
+        user_strategy_info_code
+    );
+    slice user_strategy_info_address = calculate_user_strategy_info_address_by_state_init(state_init);
+    var msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(user_strategy_info_address)
+        .store_coins(remain_msg_value)
+        .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+        .store_ref(state_init)
+        .store_ref(deposit_msg_body);
+    send_raw_message(msg.end_cell(), 1);
+
+}
+
+() _update_operator_share_without_state_init(int query_id, int is_add, int shares, slice operator_strategy_share, slice response_address, int need_ack, cell extra_payload, int msg_value) impure {
+    int update_opcode = is_add ? STAKE::OP::ADD_OPT_SHARE : STAKE::OP::DEC_OPT_SHARE;
+    var update_operator_share_msg_body = begin_cell()
+        .store_uint(update_opcode, 32)
+        .store_uint(query_id, 64)
+        .store_coins(shares)
+        .store_uint(need_ack ? 1 : 0, 1)
+        .store_slice(response_address)
+        .store_maybe_ref(extra_payload)
+        .end_cell();
+
+    var msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(operator_strategy_share)
+        .store_coins(msg_value)
+        .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_ref(update_operator_share_msg_body);
+    send_raw_message(msg.end_cell(), 1);
+}
+
+() _update_operator_share_with_state_init(int query_id, int is_add, int shares, slice operator_address, slice response_address, int need_ack, cell extra_payload, int msg_value) impure {
+    ;; send to operator_strategy_share
+    ;; to update operator's share
+    cell state_init = calculate_operator_strategy_share_state_init(
+        operator_address, 
+        my_address(), 
+        operator_strategy_share_code
+    );
+    slice operator_strategy_share = calculate_operator_strategy_share_address_by_state_init(state_init);
+    int update_opcode = is_add ? STAKE::OP::ADD_OPT_SHARE : STAKE::OP::DEC_OPT_SHARE;
+    var update_operator_share_msg_body = begin_cell()
+        .store_uint(update_opcode, 32)
+        .store_uint(query_id, 64)
+        .store_coins(shares)
+        .store_uint(need_ack ? 1 : 0, 1)
+        .store_slice(response_address)
+        .store_maybe_ref(extra_payload)
+        .end_cell();
+    var msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(operator_strategy_share)
+        .store_coins(msg_value)
+        .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+        .store_ref(state_init)
+        .store_ref(update_operator_share_msg_body);
+    send_raw_message(msg.end_cell(), 1);
+}
+
+() deposit_ack(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
+
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    ;; storage_fee is usually 0 when contract has enough balance
+    int storage_fee = STRATEGY_TON::MIN_TON_STORAGE - min(ton_balance_before_msg, STRATEGY_TON::MIN_TON_STORAGE);
+
+    throw_unless(
+        STAKE::ERR::INSUFFICIENT_VALUE, 
+        msg_value > storage_fee
+            + deposit_ack_route_fee(fwd_fee)
+    );
+
+    int shares = in_msg_body~load_coins();
+    slice user_address = in_msg_body~load_msg_addr();
+
+    throw_unless(
+        STAKE::ERR::WRONG_CALLER, 
+        equal_slices(
+            calculate_user_strategy_info_address(
+                user_address,
+                my_address(),
+                user_strategy_info_code
+            ), 
+            sender_address
+        )
+    );
+
+    int remain_msg_value = msg_value
+        - storage_fee
+        - STRATEGY::DEPOSIT_ACK_FEE
+        - fwd_fee;
+
+    slice in_extra_payload = in_msg_body~load_ref().begin_parse();
+    slice operator_address = in_extra_payload~load_msg_addr();
+    slice response_address = in_extra_payload~load_msg_addr();
+    _update_operator_share_with_state_init(
+        query_id,
+        true,
+        shares,
+        operator_address,
+        response_address,
+        false,
+        null(),
+        remain_msg_value
+    );
+}
+
+() burn(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
+
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    ;; storage_fee is usually 0 when contract has enough balance
+    int storage_fee = STRATEGY_TON::MIN_TON_STORAGE - min(ton_balance_before_msg, STRATEGY_TON::MIN_TON_STORAGE);
+
+    throw_unless(
+        STAKE::ERR::INSUFFICIENT_VALUE, 
+        msg_value > storage_fee
+            + burn_route_fee(fwd_fee)
+    );
+
+    load_global_data();
+
+    int shares = in_msg_body~load_coins();
+
+    int withdraw_id = in_msg_body~load_uint(64);
+    slice address_cell = in_msg_body~load_ref().begin_parse();
+    slice user_address = address_cell~load_msg_addr();
+
+    throw_unless(
+        STAKE::ERR::WRONG_CALLER, 
+        equal_slices(
+            calculate_user_strategy_info_address(
+                user_address,
+                my_address(),
+                user_strategy_info_code
+            ), 
+            sender_address
+        )
+    );
+
+    debt_token += shares;
+    total_shares -= shares;
+    save_global_data();
+
+    slice response_address = address_cell~load_msg_addr();
+
+    int remain_msg_value = msg_value
+        - storage_fee
+        - STRATEGY::BURN_FEE
+        - fwd_fee;
+
+    ;; init user's strategy withdraw contract
+    cell state_init = calculate_strategy_withdraw_state_init(
+        withdraw_id,
+        user_address, 
+        my_address(), 
+        withdraw_code
+    );
+    slice strategy_withdraw_address = calculate_strategy_withdraw_address_by_state_init(state_init);
+    int timestamp = now();
+    var init_strategy_withdraw_body = begin_cell()
+        .store_uint(STAKE::OP::INIT, 32)
+        .store_uint(query_id, 64)
+        .store_coins(shares)
+        .store_uint(timestamp, 64)
+        .store_uint(timestamp + withdraw_pending_time, 64)
+        .store_ref(
+            begin_cell()
+                .store_slice(response_address)
+            .end_cell()
+        )
+        .end_cell();
+    
+    var msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(strategy_withdraw_address)
+        .store_coins(remain_msg_value)
+        .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+        .store_ref(state_init)
+        .store_ref(init_strategy_withdraw_body);
+    send_raw_message(msg.end_cell(), 1);
+
+}
+
+() withdraw_ton(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
+
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    ;; storage_fee is usually 0 when contract has enough balance
+    int storage_fee = STRATEGY_TON::MIN_TON_STORAGE - min(ton_balance_before_msg, STRATEGY_TON::MIN_TON_STORAGE);
+
+    int withdraw_fee = withdraw_ton_fee(fwd_fee);
+    throw_unless(
+        STAKE::ERR::INSUFFICIENT_VALUE, 
+        msg_value > storage_fee 
+            + withdraw_fee
+    );
+
+    load_global_data();
+    int shares = in_msg_body~load_coins();
+    int withdraw_id = in_msg_body~load_uint(64);
+    slice user_address = in_msg_body~load_msg_addr();
+
+    slice address_cell = in_msg_body~load_ref().begin_parse();
+    slice recipient_address = address_cell~load_msg_addr();
+
+    throw_unless(
+        STAKE::ERR::WRONG_CALLER, 
+        equal_slices(
+            calculate_strategy_withdraw_address(
+                withdraw_id,
+                user_address,
+                my_address(),
+                withdraw_code
+            ), 
+            sender_address
+        )
+    );
+
+    int remain_msg_value = msg_value 
+        - withdraw_fee 
+        - storage_fee;
+    
+    ;; required least remain: STRATEGY_TON::WITHDRAW_MIN_TON_STORAGE
+    ;; withdraw ton: shares
+    ;; refund fee: remain_msg_value
+    ;; gas & transfer fee: withdraw_fee
+    throw_unless(
+        STAKE::ERR::INSUFFICIENT_BALANCE, 
+        my_ton_balance >= STRATEGY_TON::WITHDRAW_MIN_TON_STORAGE
+            + shares
+            + remain_msg_value
+            + withdraw_fee
+    );
+
+    debt_token -= shares;
+    save_global_data();
+
+    slice response_address = address_cell~load_msg_addr();
+    _send_ton(recipient_address, shares);
+    refund_fee(query_id, response_address, remain_msg_value);
+}
+
+() delegate_or_undelegate(int opcode, int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
+    int strategy_cycle_fee = (opcode == STAKE::OP::DELEGATE)
+        ? delegate_cycle_fee(fwd_fee)
+        : undelegate_cycle_fee(fwd_fee);
+    
+    int local_fee = (opcode == STAKE::OP::DELEGATE)
+        ? STRATEGY::DELEGATE_FEE
+        : STRATEGY::UNDELEGATE_FEE;
+
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    ;; storage_fee is usually 0 when contract has enough balance
+    int storage_fee = STRATEGY_TON::MIN_TON_STORAGE - min(ton_balance_before_msg, STRATEGY_TON::MIN_TON_STORAGE);
+
+    throw_unless(
+        STAKE::ERR::INSUFFICIENT_VALUE, 
+        msg_value > storage_fee
+            + strategy_cycle_fee
+            + fwd_fee
+            + USER_STRATEGY_INFO::DELEGATE_OR_UNDELEGATE_ACK_FEE
+    );
+    load_global_data();
+
+    int shares = in_msg_body~load_coins();
+    slice user_address = in_msg_body~load_msg_addr();
+
+    throw_unless(
+        STAKE::ERR::WRONG_CALLER, 
+        equal_slices(
+            calculate_user_strategy_info_address(
+                user_address,
+                my_address(),
+                user_strategy_info_code
+            ), 
+            sender_address
+        )
+    );
+
+    int remain_msg_value = msg_value
+        - storage_fee
+        - local_fee 
+        - fwd_fee;
+
+    slice in_extra_payload = in_msg_body~load_ref().begin_parse();
+    slice operator_address = in_extra_payload~load_msg_addr();
+    slice response_address = in_extra_payload~load_msg_addr();
+
+    cell out_extra_payload_cell = begin_cell()
+        .store_uint(opcode, 32)
+        .store_coins(shares)
+        .store_slice(sender_address)
+        .end_cell();
+
+    ;; then send query msg to utonic_manager
+    var query_msg_body = begin_cell()
+        .store_uint(STAKE::OP::QUERY, 32)
+        .store_uint(query_id, 64)
+        .store_slice(operator_address)
+        .store_slice(response_address)
+        .store_ref(out_extra_payload_cell)
+        .end_cell();
+    
+    var msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(utonic_manager_address)
+        .store_coins(remain_msg_value)
+        .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_ref(query_msg_body);
+    send_raw_message(msg.end_cell(), 1);
+
+}
+
+() query_operator_ack(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    ;; storage_fee is usually 0 when contract has enough balance
+    int storage_fee = STRATEGY_TON::MIN_TON_STORAGE - min(ton_balance_before_msg, STRATEGY_TON::MIN_TON_STORAGE);
+    ;; check msg_value for update operator_strategy_share
+    throw_unless(
+        STAKE::ERR::INSUFFICIENT_VALUE, 
+        msg_value > storage_fee
+            + STRATEGY::QUERY_OPERATOR_ACK_FEE
+            + fwd_fee
+            + update_operator_share_cycle_fee(fwd_fee)
+            + fwd_fee
+            + STRATEGY::UPDATE_OPERATOR_ACK_FEE
+            + fwd_fee
+            + USER_STRATEGY_INFO::DELEGATE_OR_UNDELEGATE_ACK_FEE
+    );
+    load_global_data();
+    throw_unless(
+        STAKE::ERR::WRONG_CALLER, 
+        equal_slices(
+            utonic_manager_address, 
+            sender_address
+        )
+    );
+    int operator_status = in_msg_body~load_uint(2);
+    slice operator_address = in_msg_body~load_msg_addr();
+    slice response_address = in_msg_body~load_msg_addr();
+    slice in_extra_payload = in_msg_body~load_ref().begin_parse();
+    int origin_opcode = in_extra_payload~load_uint(32);
+    int shares = in_extra_payload~load_coins();
+    slice user_strategy_info = in_extra_payload~load_msg_addr();
+    int remain_msg_value = msg_value
+        - storage_fee
+        - STRATEGY::QUERY_OPERATOR_ACK_FEE 
+        - fwd_fee;
+    if (operator_status == OPERATOR_REGISTER::STATUS_NORMAL) {
+        cell out_extra_payload = begin_cell()
+            .store_uint(origin_opcode, 32)
+            .store_slice(user_strategy_info)
+            .end_cell();
+        
+        _update_operator_share_with_state_init(
+            query_id,
+            origin_opcode == STAKE::OP::DELEGATE,
+            shares,
+            operator_address,
+            response_address,
+            true,
+            out_extra_payload,
+            remain_msg_value
+        );
+    } else {
+        ;; just cancel
+        ;; then send cancel_pending_msg to user_strategy_info
+        var cancel_pending_msg_body = begin_cell()
+            .store_uint(STAKE::OP::CANCEL_PENDING, 32)
+            .store_uint(query_id, 64)
+            .store_slice(response_address)
+            .end_cell();
+        
+        var msg = begin_cell()
+            .store_uint(0x18, 6)
+            .store_slice(user_strategy_info)
+            .store_coins(remain_msg_value)
+            .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_ref(cancel_pending_msg_body);
+        send_raw_message(msg.end_cell(), 1);
+    }
+}
+
+() update_operator_ack(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
+   
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    ;; storage_fee is usually 0 when contract has enough balance
+    int storage_fee = STRATEGY_TON::MIN_TON_STORAGE - min(ton_balance_before_msg, STRATEGY_TON::MIN_TON_STORAGE);
+    
+    ;; check msg_value for delegate/undelegate ack
+    throw_unless(
+        STAKE::ERR::INSUFFICIENT_VALUE, 
+        msg_value > storage_fee
+            + STRATEGY::UPDATE_OPERATOR_ACK_FEE
+            + fwd_fee
+            + USER_STRATEGY_INFO::DELEGATE_OR_UNDELEGATE_ACK_FEE
+    );
+    load_global_data();
+    slice operator_address = in_msg_body~load_msg_addr();
+    throw_unless(
+        STAKE::ERR::WRONG_CALLER, 
+        equal_slices(
+            calculate_operator_strategy_share_address(
+                operator_address,
+                my_address(),
+                operator_strategy_share_code
+            ), 
+            sender_address
+        )
+    );
+
+    slice response_address = in_msg_body~load_msg_addr();
+    
+    slice in_extra_payload = in_msg_body~load_ref().begin_parse();
+    int origin_opcode = in_extra_payload~load_uint(32);
+    slice user_strategy_info = in_extra_payload~load_msg_addr();
+    int remain_msg_value = msg_value
+        - storage_fee
+        - STRATEGY::UPDATE_OPERATOR_ACK_FEE 
+        - fwd_fee;
+
+    int opcode = origin_opcode == STAKE::OP::DELEGATE
+        ? STAKE::OP::DELEGATE_ACK
+        : STAKE::OP::UNDELEGATE_ACK;
+    ;; then send ack delegate/undelegate to user_strategy_info
+    var ack_msg_body = begin_cell()
+        .store_uint(opcode, 32)
+        .store_uint(query_id, 64)
+        .store_slice(response_address)
+        .end_cell();
+    
+    var msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(user_strategy_info)
+        .store_coins(remain_msg_value)
+        .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_ref(ack_msg_body);
+    send_raw_message(msg.end_cell(), 1);
+}
+
+() admin_update_operator_share(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
+
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    ;; storage_fee is usually 0 when contract has enough balance
+    int storage_fee = STRATEGY_TON::MIN_TON_STORAGE - min(ton_balance_before_msg, STRATEGY_TON::MIN_TON_STORAGE);
+    
+    ;; check msg_value for delegate/undelegate ack
+    throw_unless(
+        STAKE::ERR::INSUFFICIENT_VALUE, 
+        msg_value > storage_fee
+            + STRATEGY::ADMIN_UPDATE_OPERATOR_FEE
+            + fwd_fee
+            + OPERATOR_STRATEGY_SHARE::UPDATE_FEE
+    );
+    load_global_data();
+    throw_unless(
+        STAKE::ERR::UNAUTHORIZED, 
+        equal_slices(
+            admin_address, 
+            sender_address
+        )
+    );
+    int is_add = in_msg_body~load_uint(1);
+    int shares = in_msg_body~load_coins();
+    slice operator_strategy_share = in_msg_body~load_msg_addr();
+    int remain_msg_value = msg_value
+        - storage_fee
+        - STRATEGY::ADMIN_UPDATE_OPERATOR_FEE
+        - fwd_fee;
+    _update_operator_share_without_state_init(
+        query_id,
+        is_add,
+        shares,
+        operator_strategy_share,
+        sender_address,
+        true,
+        null(),
+        remain_msg_value
+    );
+}
+
+() admin_delegate_or_undelegate_ack(int opcode, int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
+   
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    ;; storage_fee is usually 0 when contract has enough balance
+    int storage_fee = STRATEGY_JETTON::MIN_TON_STORAGE - min(ton_balance_before_msg, STRATEGY_JETTON::MIN_TON_STORAGE);
+    int local_fee = (opcode == STRATEGY::OP::ADMIN_DELEGATE_ACK)
+        ? STRATEGY::ADMIN_DELEGATE_ACK_FEE
+        : STRATEGY::ADMIN_UNDELEGATE_ACK_FEE;
+    ;; check msg_value for delegate/undelegate ack
+    throw_unless(
+        STAKE::ERR::INSUFFICIENT_VALUE, 
+        msg_value > storage_fee
+            + local_fee
+            + fwd_fee
+            + USER_STRATEGY_INFO::DELEGATE_OR_UNDELEGATE_ACK_FEE
+    );
+    load_global_data();
+    throw_unless(
+        STAKE::ERR::UNAUTHORIZED, 
+        equal_slices(
+            admin_address, 
+            sender_address
+        )
+    );
+    slice user_address = in_msg_body~load_msg_addr();
+    cell state_init = calculate_user_strategy_info_state_init(
+        user_address,
+        my_address(),
+        user_strategy_info_code
+    );
+    slice user_strategy_info = calculate_user_strategy_info_address_by_state_init(state_init);
+    slice response_address = in_msg_body~load_msg_addr();
+    
+    int remain_msg_value = msg_value
+        - storage_fee
+        - local_fee 
+        - fwd_fee;
+
+    int ack_opcode = opcode == STRATEGY::OP::ADMIN_DELEGATE_ACK
+        ? STAKE::OP::DELEGATE_ACK
+        : STAKE::OP::UNDELEGATE_ACK;
+    ;; then send ack delegate/undelegate to user_strategy_info
+    var ack_msg_body = begin_cell()
+        .store_uint(ack_opcode, 32)
+        .store_uint(query_id, 64)
+        .store_slice(response_address)
+        .end_cell();
+    
+    var msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(user_strategy_info)
+        .store_coins(remain_msg_value)
+        .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_ref(ack_msg_body);
+    send_raw_message(msg.end_cell(), 1);
+}
+
+() admin_cancel_user_pending(int query_id, slice in_msg_body, slice sender_address, int my_ton_balance, int fwd_fee, int msg_value) impure {
+
+    int ton_balance_before_msg = my_ton_balance - msg_value;
+    ;; storage_fee is usually 0 when contract has enough balance
+    int storage_fee = STRATEGY_TON::MIN_TON_STORAGE - min(ton_balance_before_msg, STRATEGY_TON::MIN_TON_STORAGE);
+    
+    ;; check msg_value for delegate/undelegate ack
+    throw_unless(
+        STAKE::ERR::INSUFFICIENT_VALUE, 
+        msg_value > storage_fee
+            + STRATEGY::ADMIN_CANCEL_USER_PENDING_FEE
+            + fwd_fee
+            + USER_STRATEGY_INFO::CANCEL_PENDING_FEE
+    );
+    load_global_data();
+    throw_unless(
+        STAKE::ERR::UNAUTHORIZED, 
+        equal_slices(
+            admin_address, 
+            sender_address
+        )
+    );
+    slice user_strategy_info = in_msg_body~load_msg_addr();
+    int remain_msg_value = msg_value
+        - storage_fee
+        - STRATEGY::ADMIN_UPDATE_OPERATOR_FEE
+        - fwd_fee;
+    var cancel_pending_msg_body = begin_cell()
+        .store_uint(STAKE::OP::CANCEL_PENDING, 32)
+        .store_uint(query_id, 64)
+        .store_slice(sender_address)
+        .end_cell();
+    
+    var msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(user_strategy_info)
+        .store_coins(remain_msg_value)
+        .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_ref(cancel_pending_msg_body);
+    send_raw_message(msg.end_cell(), 1);
+}
+
+() recv_internal(int balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+    if (flags & 1) { 
+        return ();
+    }
+    slice sender_address = cs~load_msg_addr();
+    cs~load_msg_addr();
+    cs~load_coins();
+    cs~skip_bits(1);
+    cs~load_coins();
+    int fwd_fee = cs~load_coins();
+
+    if (in_msg_body.slice_empty?()) {
+        ;; just deposit
+        return ();
+    }
+
+    int op = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+    
+    if (op == STRATEGY::OP::INIT_USER_INFO) {
+        init_user_info(query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    if (op == STAKE::OP::DEPOSIT) {
+        deposit(query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    if (op == STAKE::OP::DEPOSIT_ACK) {
+        deposit_ack(query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    if (op == STAKE::OP::BURN) {
+        burn(query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    if (op == STAKE::OP::WITHDRAW) {
+        withdraw_ton(query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    if (op == STAKE::OP::DELEGATE) {
+        delegate_or_undelegate(op, query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    if (op == STAKE::OP::UNDELEGATE) {
+        delegate_or_undelegate(op, query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    if (op == STAKE::OP::QUERY_ACK) {
+        query_operator_ack(query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    if (op == STAKE::OP::UPDATE_OPT_SHARE_ACK) {
+        update_operator_ack(query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    ;; admin operation
+    if (op == STRATEGY::OP::ADMIN_UPDATE_OPERATOR_SHARE) {
+        admin_update_operator_share(query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    if (op == STRATEGY::OP::ADMIN_DELEGATE_ACK) {
+        admin_delegate_or_undelegate_ack(op, query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    if (op == STRATEGY::OP::ADMIN_UNDELEGATE_ACK) {
+        admin_delegate_or_undelegate_ack(op, query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    if (op == STRATEGY::OP::ADMIN_CANCEL_USER_PENDING) {
+        admin_cancel_user_pending(query_id, in_msg_body, sender_address, balance, fwd_fee, msg_value);
+        return ();
+    }
+
+    if (op == STRATEGY::OP::ADMIN_UPDATE_WITHDRAW_PENDING_TIME) {
+        load_global_data();
+        throw_unless(STAKE::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));        
+        withdraw_pending_time = in_msg_body~load_uint(32);
+        save_global_data();
+        return ();
+    }
+
+    if (op == STRATEGY::OP::ADMIN_UPDATE_TOKEN_RECEIVER) {
+        load_global_data();
+        throw_unless(STAKE::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));        
+        ton_receiver_address = in_msg_body~load_msg_addr();
+        save_global_data();
+        return ();
+    }
+
+    if (op == STRATEGY::OP::ADMIN_EXTRACT_TOKEN) {
+        load_global_data();
+        throw_unless(STAKE::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));        
+        int amount = in_msg_body~load_coins();
+        _send_ton(ton_receiver_address, amount);
+        return ();
+    }
+
+    if (op == STRATEGY::OP::ADMIN_UPDATE_UTONIC_MANAGER) {
+        load_global_data();
+        throw_unless(STAKE::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        utonic_manager_address = in_msg_body~load_msg_addr();
+        save_global_data();
+        return ();
+    }
+
+    if (op == STAKE::OP::ADMIN_UPDATE_ADMIN) {
+        load_global_data();
+        throw_unless(STAKE::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        pending_admin_address = in_msg_body~load_msg_addr();
+        save_global_data();
+        return ();
+    }
+
+    if (op == STAKE::OP::ADMIN_ACCEPT_ADMIN) {
+        load_global_data();
+        throw_unless(STAKE::ERR::WRONG_CALLER, equal_slices(sender_address, pending_admin_address));
+        admin_address = pending_admin_address;
+        save_global_data();
+        return ();
+    }
+
+    if (op == STAKE::OP::ADMIN_UPDATE_CODE) {
+        load_global_data();
+        throw_unless(STAKE::ERR::UNAUTHORIZED, equal_slices(sender_address, admin_address));
+        cell code = in_msg_body~load_ref();
+        set_code(code);
+        return ();
+    }
+
+    throw(0xffff);
+}
+
+(int, int, int, int, slice, slice, slice, slice, cell, cell, cell) get_strategy_data() method_id {
+    load_global_data();
+    return (
+        strategy_id,
+        withdraw_pending_time,
+        total_shares,
+        debt_token,
+        utonic_manager_address,
+        admin_address,
+        pending_admin_address,
+        ton_receiver_address,
+        user_strategy_info_code,
+        operator_strategy_share_code,
+        withdraw_code
+    );
+}
+
+(slice) get_user_strategy_info_address(slice user_address) method_id {
+    load_global_data();
+    return calculate_user_strategy_info_address(user_address, my_address(), user_strategy_info_code);
+}
+
+(slice) get_operator_strategy_share_address(slice operator_address) method_id {
+    load_global_data();
+    return calculate_operator_strategy_share_address(operator_address, my_address(), operator_strategy_share_code);
+}
+
+(slice) get_strategy_withdraw_address(int withdraw_id, slice user_address) method_id {
+    load_global_data();
+    return calculate_strategy_withdraw_address(withdraw_id, user_address, my_address(), withdraw_code);
+}
