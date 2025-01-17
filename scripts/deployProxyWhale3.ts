@@ -26,9 +26,9 @@ export async function run() {
   const adminAddress = Address.parse(config.proxy_whale3_admin);
   const utonReceiver = Address.parse(config.proxy_whale3_uton_receiver);
   
-  const proxyId = config.proxy_whale3_id;
+  const proxyId = Number(config.proxy_whale3_id);
   const limitDecimal = Number(config.proxy_whale3_limit);
-
+  
   const limitUndecimal = BigInt(limitDecimal * 1e9);
   const proxyWhale3 = ProxyWhale3.createForDeploy(
     proxyWhale3Code,
