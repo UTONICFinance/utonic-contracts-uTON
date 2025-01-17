@@ -221,7 +221,6 @@ global slice operator_address;
     
     shares += deposit_shares;
     save_global_data();
-
     if (status == USER_STRATEGY_INFO::STATUS::DELEGATE_DONE) {
         
         int remain_msg_value = msg_value

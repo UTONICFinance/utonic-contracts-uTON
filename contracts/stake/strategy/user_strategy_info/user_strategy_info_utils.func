@@ -10,12 +10,6 @@ cell pack_user_strategy_info_data(
     slice lc_strategy_address,
     slice lc_operator_address
 ) inline {
-    cell user_data = begin_cell()
-        .store_coins(lc_shares)
-        .store_uint(lc_status, 4)
-        .store_uint(lc_withdraw_cnt, 32)
-        .store_slice(lc_user_address)
-        .end_cell();
     
     cell meta_data = begin_cell()
         .store_slice(lc_strategy_address)
@@ -23,7 +17,10 @@ cell pack_user_strategy_info_data(
         .end_cell();
     
     return begin_cell()
-        .store_ref(user_data)
+        .store_coins(lc_shares)
+        .store_uint(lc_status, 4)
+        .store_uint(lc_withdraw_cnt, 32)
+        .store_slice(lc_user_address)
         .store_ref(meta_data)
         .end_cell();
 }
