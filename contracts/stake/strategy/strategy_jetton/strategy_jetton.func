@@ -494,7 +494,7 @@ global cell withdraw_code;
         .store_slice(response_address)
         .store_ref(out_extra_payload_cell)
         .end_cell();
-    
+~dump(utonic_manager_address);
     var msg = begin_cell()
         .store_uint(0x18, 6)
         .store_slice(utonic_manager_address)

@@ -65,16 +65,16 @@ cell pack_strategy_jetton_data (
     int lc_capacity = data_cell~load_coins();
     int lc_total_shares = data_cell~load_coins();
 
-    slice address_cell = ds~load_ref().begin_parse();
-    slice lc_jetton_receiver_address = address_cell~load_msg_addr();
-    slice lc_utonic_manager_address = address_cell~load_msg_addr();
+    slice admin_and_address_cell = ds~load_ref().begin_parse();
+    slice lc_utonic_manager_address = admin_and_address_cell~load_msg_addr();
+    slice lc_jetton_receiver_address = admin_and_address_cell~load_msg_addr();
     
-    slice admin_data_cell = address_cell~load_ref().begin_parse();
+    slice admin_data_cell = admin_and_address_cell~load_ref().begin_parse();
     int lc_debt_token = admin_data_cell~load_coins();
     slice lc_admin_address = admin_data_cell~load_msg_addr();
     slice lc_pending_admin_address = admin_data_cell~load_msg_addr();
     
-    slice jetton_cell = address_cell~load_ref().begin_parse();
+    slice jetton_cell = admin_and_address_cell~load_ref().begin_parse();
     slice lc_jetton_minter_address = jetton_cell~load_msg_addr();
     slice lc_strategy_jetton_wallet = jetton_cell~load_msg_addr();
     
