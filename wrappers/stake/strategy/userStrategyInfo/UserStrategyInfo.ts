@@ -1,6 +1,6 @@
 import { Contract, ContractProvider, Sender, Address, Cell, contractAddress, beginCell, Slice, TupleItemSlice, TupleItemInt, Dictionary } from "@ton/core";
 import { STRATEGY_OP_ADMIN_UPDATE_WITHDRAW_PENDING_TIME, STRATEGY_OP_INIT_USER_INFO } from "../strategyOp";
-import { STAKE_OP_DELEGATE, STAKE_OP_UNDELEGATE } from "../../stakeOp";
+import { STAKE_OP_BURN, STAKE_OP_DELEGATE, STAKE_OP_UNDELEGATE } from "../../stakeOp";
 
 export default class UserStrategyInfo implements Contract {
 
@@ -50,7 +50,7 @@ export default class UserStrategyInfo implements Contract {
 
   async sendBurn(provider: ContractProvider, via: Sender, queryId: number, shares: bigint, responseAddress: Address, value: string) {
     const messageBody = beginCell()
-      .storeUint(STRATEGY_OP_ADMIN_UPDATE_WITHDRAW_PENDING_TIME, 32) // op 
+      .storeUint(STAKE_OP_BURN, 32) // op 
       .storeUint(queryId, 64) // query id
       .storeCoins(shares)
       .storeAddress(responseAddress)
