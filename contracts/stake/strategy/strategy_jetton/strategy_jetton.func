@@ -28,10 +28,9 @@ global int total_shares;
 global int debt_token;
 global slice utonic_manager_address;
 global slice jetton_receiver_address;
+global slice strategy_jetton_wallet;
 global slice admin_address;
 global slice pending_admin_address;
-global slice jetton_minter_address;
-global slice strategy_jetton_wallet;
 global cell user_strategy_info_code;
 global cell operator_strategy_share_code;
 global cell withdraw_code;
@@ -45,10 +44,9 @@ global cell withdraw_code;
         debt_token,
         utonic_manager_address,
         jetton_receiver_address,
+        strategy_jetton_wallet,
         admin_address,
         pending_admin_address,
-        jetton_minter_address,
-        strategy_jetton_wallet,
         user_strategy_info_code,
         operator_strategy_share_code,
         withdraw_code
@@ -64,10 +62,9 @@ global cell withdraw_code;
         debt_token,
         utonic_manager_address,
         jetton_receiver_address,
+        strategy_jetton_wallet,
         admin_address,
         pending_admin_address,
-        jetton_minter_address,
-        strategy_jetton_wallet,
         user_strategy_info_code,
         operator_strategy_share_code,
         withdraw_code
@@ -941,7 +938,7 @@ global cell withdraw_code;
     throw(0xffff);
 }
 
-(int, int, int, int, int, slice, slice, slice, slice, slice, slice, cell, cell, cell) get_strategy_data() method_id {
+(int, int, int, int, int, slice, slice, slice, slice, slice, cell, cell, cell) get_strategy_data() method_id {
     load_global_data();
     return (
         strategy_id,
@@ -951,10 +948,9 @@ global cell withdraw_code;
         debt_token,
         utonic_manager_address,
         jetton_receiver_address,
+        strategy_jetton_wallet,
         admin_address,
         pending_admin_address,
-        jetton_minter_address,
-        strategy_jetton_wallet,
         user_strategy_info_code,
         operator_strategy_share_code,
         withdraw_code
