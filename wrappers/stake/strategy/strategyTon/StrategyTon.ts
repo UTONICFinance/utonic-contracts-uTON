@@ -1,5 +1,5 @@
 import { Contract, ContractProvider, Sender, Address, Cell, contractAddress, beginCell, Slice, TupleItemSlice, TupleItemInt, Dictionary } from "@ton/core";
-import { STRATEGY_OP_INIT_USER_INFO } from "../strategyOp";
+import { STRATEGY_OP_ADMIN_EXTRACT_TOKEN, STRATEGY_OP_INIT_USER_INFO } from "../strategyOp";
 import { STAKE_OP_DEPOSIT } from "../../stakeOp";
 
 export default class StrategyTon implements Contract {
@@ -89,6 +89,20 @@ export default class StrategyTon implements Contract {
       body: messageBody
     });
   }
+
+  async sendAdminExtractToken(provider: ContractProvider, via: Sender, queryId: number, amount: bigint, responseAddress: Address, value: string) {
+    const messageBody = beginCell()
+      .storeUint(STRATEGY_OP_ADMIN_EXTRACT_TOKEN, 32) // op 
+      .storeUint(queryId, 64) // query id
+      .storeCoins(amount)
+      .storeAddress(responseAddress)
+      .endCell();
+    await provider.internal(via, {
+      value,
+      body: messageBody
+    });
+  }
+
 
   async getStrategyData(provider: ContractProvider) {
     const { stack } = await provider.get("get_strategy_data", []);
