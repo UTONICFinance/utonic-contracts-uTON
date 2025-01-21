@@ -11,7 +11,6 @@ export default class StrategyJetton implements Contract {
     utonicManagerAddress: Address,
     jettonReceiverAddress: Address,
     adminAddress: Address,
-    jettonMinterAddress: Address,
     userStrategyInfoCode: Cell,
     operatorStrategyShareCode: Cell,
     withdrawCode: Cell,
@@ -25,20 +24,16 @@ export default class StrategyJetton implements Contract {
         .storeCoins(totalShares)
         .endCell();
     const pendingAdminAddress = adminAddress;
-    const adminDataCell = beginCell()
+    const adminDataExtraCell = beginCell()
         .storeCoins(debtToken)
         .storeAddress(adminAddress)
         .storeAddress(pendingAdminAddress)
         .endCell();
-    const jettonCell = beginCell()
-        .storeAddress(jettonMinterAddress)
-        .storeUint(0, 2)
-        .endCell()
-    const adminAndAddressCell = beginCell()
+    const adminDataCell = beginCell()
         .storeAddress(utonicManagerAddress)
         .storeAddress(jettonReceiverAddress)
-        .storeRef(adminDataCell)
-        .storeRef(jettonCell)
+        .storeUint(0, 2)
+        .storeRef(adminDataExtraCell)
         .endCell();
     const codeCell = beginCell()
         .storeRef(userStrategyInfoCode)
@@ -47,7 +42,7 @@ export default class StrategyJetton implements Contract {
         .endCell();
     return beginCell()
         .storeRef(dataCell)
-        .storeRef(adminAndAddressCell)
+        .storeRef(adminDataCell)
         .storeRef(codeCell)
         .endCell();
   }
@@ -120,10 +115,9 @@ export default class StrategyJetton implements Contract {
     const debtToken = stack.readBigNumber();
     const utonicManagerAddress = stack.readAddress();
     const jettonReceiverAddress = stack.readAddress();
+    const strategyJettonWallet = stack.readAddressOpt();
     const adminAddress = stack.readAddress();
     const pendingAdminAddress = stack.readAddress();
-    const jettonMinterAddress = stack.readAddress();
-    const strategyJettonWallet = stack.readAddressOpt();
     return {
         strategyId,
         withdrawPendingTime,
@@ -132,10 +126,9 @@ export default class StrategyJetton implements Contract {
         debtToken,
         utonicManagerAddress,
         jettonReceiverAddress,
+        strategyJettonWallet,
         adminAddress,
         pendingAdminAddress,
-        jettonMinterAddress,
-        strategyJettonWallet,
     };
   }
 
