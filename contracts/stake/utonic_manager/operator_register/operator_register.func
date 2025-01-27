@@ -88,7 +88,6 @@ global slice utonic_manager_address;
             utonic_manager_address
         )
     );
-
     int is_baned = in_msg_body~load_uint(1);
     slice response_address = in_msg_body~load_msg_addr();
     if (is_baned) {
@@ -167,7 +166,6 @@ global slice utonic_manager_address;
 
     int op = in_msg_body~load_uint(32);
     int query_id = in_msg_body~load_uint(64);
-
     if (op == STAKE::OP::INIT) { 
         init(query_id, in_msg_body,sender_address,my_balance,fwd_fee,msg_value);
         return ();

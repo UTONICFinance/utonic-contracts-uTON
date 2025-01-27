@@ -1,0 +1,45 @@
+#include "../imports/stdlib.fc";
+
+() recv_internal(int balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+
+    if (flags & 1) { 
+        return ();
+    }
+    slice sender_address = cs~load_msg_addr();
+    cs~load_msg_addr();
+    cs~load_coins();
+    cs~skip_bits(1);
+    cs~load_coins();
+    int fwd_fee = cs~load_coins();
+
+    if (in_msg_body.slice_empty?()) {
+        ;; just deposit
+        return ();
+    }
+
+    int op = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+
+    if (op == 1) {
+        slice destination = in_msg_body~load_msg_addr();
+        var msg_body = begin_cell()
+            .store_uint(11, 32)
+            .store_uint(query_id, 64)
+            .end_cell();
+        
+        var msg = begin_cell()
+            .store_uint(0x18, 6)
+            .store_slice(destination)
+            .store_coins(0)
+            .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_ref(msg_body);
+        send_raw_message(msg.end_cell(), 64);
+        return ();
+    }
+
+    throw(0xffff);
+
+}
+
