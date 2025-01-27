@@ -1,3 +1,5 @@
+const WORKCHAIN = 0;
+
 (int) get_workchain(slice address) inline {
   (int wc, _) = parse_var_addr(address);
   return wc;

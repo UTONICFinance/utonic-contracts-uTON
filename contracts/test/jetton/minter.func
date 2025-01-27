@@ -1,4 +1,4 @@
-#include "libs/stdlib.func";
+#include "../../imports/stdlib.fc";
 #include "minter/op.func";
 #include "minter/params.func";
 #include "minter/errors.func";
@@ -52,19 +52,6 @@
 
         mint_tokens(to_address, jetton_wallet_code, MINT_FEE, master_msg);
         save_data(total_supply + jetton_amount, admin_address, content, jetton_wallet_code);
-        return ();
-    }
-
-    if (op == UPDATE_ADMIN) {
-        throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
-        slice new_admin_address = in_msg_body~load_msg_addr();
-        save_data(total_supply, new_admin_address, content, jetton_wallet_code);
-        return ();
-    }
-
-    if (op == UPDATE_CONTENT) {
-        throw_unless(UNAUTHORIZED, equal_slices(sender_address, admin_address));
-        save_data(total_supply, admin_address, in_msg_body~load_ref(), jetton_wallet_code);
         return ();
     }
 
