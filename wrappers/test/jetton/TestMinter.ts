@@ -26,9 +26,9 @@ export default class TestMinter implements Contract {
 
   constructor(readonly address: Address, readonly init?: { code: Cell, data: Cell }) {}
 
-  async sendDeploy(provider: ContractProvider, via: Sender) {
+  async sendDeploy(provider: ContractProvider, via: Sender, value: string) {
     await provider.internal(via, {
-      value: "0.1", // send TON to contract for rent
+      value, // send TON to contract for rent
       bounce: false
     });
   }
