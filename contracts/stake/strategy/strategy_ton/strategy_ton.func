@@ -670,13 +670,7 @@ global cell withdraw_code;
             sender_address
         )
     );
-    slice user_address = in_msg_body~load_msg_addr();
-    cell state_init = calculate_user_strategy_info_state_init(
-        user_address,
-        my_address(),
-        user_strategy_info_code
-    );
-    slice user_strategy_info = calculate_user_strategy_info_address_by_state_init(state_init);
+    slice user_strategy_info = in_msg_body~load_msg_addr();
     slice response_address = in_msg_body~load_msg_addr();
     
     int remain_msg_value = msg_value
