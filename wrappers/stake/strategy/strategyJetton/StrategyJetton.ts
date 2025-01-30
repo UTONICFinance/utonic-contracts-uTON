@@ -1,5 +1,5 @@
 import { Contract, ContractProvider, Sender, Address, Cell, contractAddress, beginCell, Slice, TupleItemSlice, TupleItemInt, Dictionary } from "@ton/core";
-import { STRATEGY_OP_ADMIN_EXTRACT_TOKEN, STRATEGY_OP_ADMIN_UPDATE_WITHDRAW_PENDING_TIME, STRATEGY_OP_INIT_USER_INFO } from "../strategyOp";
+import { STRATEGY_OP_ADMIN_CANCEL_USER_PENDING, STRATEGY_OP_ADMIN_DELEGATE_ACK, STRATEGY_OP_ADMIN_EXTRACT_TOKEN, STRATEGY_OP_ADMIN_UNDELEGATE_ACK, STRATEGY_OP_ADMIN_UPDATE_OPERATOR_SHARE, STRATEGY_OP_ADMIN_UPDATE_WITHDRAW_PENDING_TIME, STRATEGY_OP_INIT_USER_INFO } from "../strategyOp";
 import { STRATEGY_JETTON_OP_ADMIN_UPDATE_STRATEGY_JETTON_WALLET } from "./StrategyJettonOp";
 
 export default class StrategyJetton implements Contract {
@@ -98,6 +98,58 @@ export default class StrategyJetton implements Contract {
       .storeUint(queryId, 64) // query id
       .storeCoins(amount)
       .storeAddress(responseAddress)
+      .endCell();
+    await provider.internal(via, {
+      value,
+      body: messageBody
+    });
+  }
+
+  async sendAdminCancelUserPending(provider: ContractProvider, via: Sender, queryId: number, userStrategyInfoAddress: Address, value: string) {
+    const messageBody = beginCell()
+      .storeUint(STRATEGY_OP_ADMIN_CANCEL_USER_PENDING, 32) // op 
+      .storeUint(queryId, 64) // query id
+      .storeAddress(userStrategyInfoAddress)
+      .endCell();
+    await provider.internal(via, {
+      value,
+      body: messageBody
+    });
+  }
+
+  async sendAdminDelegateAck(provider: ContractProvider, via: Sender, queryId: number, userStrategyInfoAddress: Address, responseAddress: Address, value: string) {
+    const messageBody = beginCell()
+      .storeUint(STRATEGY_OP_ADMIN_DELEGATE_ACK, 32) // op 
+      .storeUint(queryId, 64) // query id
+      .storeAddress(userStrategyInfoAddress)
+      .storeAddress(responseAddress)
+      .endCell();
+    await provider.internal(via, {
+      value,
+      body: messageBody
+    });
+  }
+
+  async sendAdminUndelegateAck(provider: ContractProvider, via: Sender, queryId: number, userStrategyInfoAddress: Address, responseAddress: Address, value: string) {
+    const messageBody = beginCell()
+      .storeUint(STRATEGY_OP_ADMIN_UNDELEGATE_ACK, 32) // op 
+      .storeUint(queryId, 64) // query id
+      .storeAddress(userStrategyInfoAddress)
+      .storeAddress(responseAddress)
+      .endCell();
+    await provider.internal(via, {
+      value,
+      body: messageBody
+    });
+  }
+
+  async sendAdminUpdateOperatorShare(provider: ContractProvider, via: Sender, queryId: number, operatorStrategyShareAddress: Address, delta: bigint, value: string) {
+    const messageBody = beginCell()
+      .storeUint(STRATEGY_OP_ADMIN_UPDATE_OPERATOR_SHARE, 32) // op 
+      .storeUint(queryId, 64) // query id
+      .storeUint(delta > 0n ? 1 : 0, 1)
+      .storeCoins(delta > 0n? delta : -delta)
+      .storeAddress(operatorStrategyShareAddress)
       .endCell();
     await provider.internal(via, {
       value,

@@ -1,5 +1,6 @@
 import { Contract, ContractProvider, Sender, Address, Cell, contractAddress, beginCell, Slice, TupleItemSlice, TupleItemInt, Dictionary } from "@ton/core";
 import { UTONIC_MANAGER_OP_REGISTER, UTONIC_MANAGER_OP_SWITCH_OPERATOR_STATUS } from "./utonicManagerOp";
+import { STAKE_OP_ADMIN_UPDATE_CODE } from "../stakeOp";
 
 export default class UTonicManager implements Contract {
 
@@ -54,6 +55,18 @@ export default class UTonicManager implements Contract {
       .storeUint(isBaned? 1 : 0, 1)
       .storeAddress(operatorRegisterAddress)
       .storeAddress(responseAddress)
+      .endCell();
+    await provider.internal(via, {
+      value,
+      body: messageBody
+    });
+  }
+
+  async sendUpdateCode(provider: ContractProvider, via: Sender, queryId: number, code: Cell, value: string) {
+    const messageBody = beginCell()
+      .storeUint(STAKE_OP_ADMIN_UPDATE_CODE, 32) // op 
+      .storeUint(queryId, 64) // query id
+      .storeRef(code)
       .endCell();
     await provider.internal(via, {
       value,
