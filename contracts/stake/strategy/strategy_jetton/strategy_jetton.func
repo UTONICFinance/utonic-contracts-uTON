@@ -668,7 +668,7 @@ global cell withdraw_code;
         shares,
         operator_strategy_share,
         sender_address,
-        true,
+        false,
         null(),
         remain_msg_value
     );
