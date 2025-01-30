@@ -22,6 +22,8 @@
     "compile-operator-register": "npx func-js contracts/stake/utonic_manager/operator_register/operator_register.func --boc build/operator_register.cell",
     "compile-utonic-manager": "npx func-js contracts/stake/utonic_manager/utonic_manager.func --boc build/utonic_manager.cell",
 
+    "compile-stake-test-update-code": "npx func-js contracts/stake/test/test_update_code.func --boc build/stake_test_update_code.cell",
+
     "test": "jest --verbose"
   },
   "devDependencies": {
