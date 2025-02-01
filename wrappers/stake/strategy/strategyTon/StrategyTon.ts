@@ -1,6 +1,6 @@
 import { Contract, ContractProvider, Sender, Address, Cell, contractAddress, beginCell, Slice, TupleItemSlice, TupleItemInt, Dictionary } from "@ton/core";
 import { STRATEGY_OP_ADMIN_CANCEL_USER_PENDING, STRATEGY_OP_ADMIN_DELEGATE_ACK, STRATEGY_OP_ADMIN_EXTRACT_TOKEN, STRATEGY_OP_ADMIN_UNDELEGATE_ACK, STRATEGY_OP_ADMIN_UPDATE_OPERATOR_SHARE, STRATEGY_OP_INIT_USER_INFO } from "../strategyOp";
-import { STAKE_OP_DEPOSIT } from "../../stakeOp";
+import { STAKE_OP_ADMIN_ACCEPT_ADMIN, STAKE_OP_ADMIN_UPDATE_ADMIN, STAKE_OP_ADMIN_UPDATE_CODE, STAKE_OP_DEPOSIT } from "../../stakeOp";
 
 export default class StrategyTon implements Contract {
 
@@ -154,7 +154,42 @@ export default class StrategyTon implements Contract {
       body: messageBody
     });
   }
-  
+
+  async sendAdminUpdateAdmin(provider: ContractProvider, via: Sender, queryId: number, pendingAdminAddress: Address, value: string) {
+    const messageBody = beginCell()
+      .storeUint(STAKE_OP_ADMIN_UPDATE_ADMIN, 32) // op 
+      .storeUint(queryId, 64) // query id
+      .storeAddress(pendingAdminAddress)
+      .endCell();
+    await provider.internal(via, {
+      value,
+      body: messageBody
+    });
+  }
+
+  async sendAdminAcceptAdmin(provider: ContractProvider, via: Sender, queryId: number, value: string) {
+    const messageBody = beginCell()
+      .storeUint(STAKE_OP_ADMIN_ACCEPT_ADMIN, 32) // op 
+      .storeUint(queryId, 64) // query id
+      .endCell();
+    await provider.internal(via, {
+      value,
+      body: messageBody
+    });
+  }
+
+  async sendAdminUpdateCode(provider: ContractProvider, via: Sender, queryId: number, code: Cell, value: string) {
+    const messageBody = beginCell()
+      .storeUint(STAKE_OP_ADMIN_UPDATE_CODE, 32) // op 
+      .storeUint(queryId, 64) // query id
+      .storeRef(code)
+      .endCell();
+    await provider.internal(via, {
+      value,
+      body: messageBody
+    });
+  }
+
   async getStrategyData(provider: ContractProvider) {
     const { stack } = await provider.get("get_strategy_data", []);
     

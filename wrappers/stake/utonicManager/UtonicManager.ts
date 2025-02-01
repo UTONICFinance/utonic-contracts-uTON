@@ -1,6 +1,6 @@
 import { Contract, ContractProvider, Sender, Address, Cell, contractAddress, beginCell, Slice, TupleItemSlice, TupleItemInt, Dictionary } from "@ton/core";
 import { UTONIC_MANAGER_OP_REGISTER, UTONIC_MANAGER_OP_SWITCH_OPERATOR_STATUS } from "./utonicManagerOp";
-import { STAKE_OP_ADMIN_UPDATE_CODE } from "../stakeOp";
+import { STAKE_OP_ADMIN_ACCEPT_ADMIN, STAKE_OP_ADMIN_UPDATE_ADMIN, STAKE_OP_ADMIN_UPDATE_CODE } from "../stakeOp";
 
 export default class UTonicManager implements Contract {
 
@@ -63,6 +63,41 @@ export default class UTonicManager implements Contract {
   }
 
   async sendUpdateCode(provider: ContractProvider, via: Sender, queryId: number, code: Cell, value: string) {
+    const messageBody = beginCell()
+      .storeUint(STAKE_OP_ADMIN_UPDATE_CODE, 32) // op 
+      .storeUint(queryId, 64) // query id
+      .storeRef(code)
+      .endCell();
+    await provider.internal(via, {
+      value,
+      body: messageBody
+    });
+  }
+
+  async sendAdminUpdateAdmin(provider: ContractProvider, via: Sender, queryId: number, pendingAdminAddress: Address, value: string) {
+    const messageBody = beginCell()
+      .storeUint(STAKE_OP_ADMIN_UPDATE_ADMIN, 32) // op 
+      .storeUint(queryId, 64) // query id
+      .storeAddress(pendingAdminAddress)
+      .endCell();
+    await provider.internal(via, {
+      value,
+      body: messageBody
+    });
+  }
+
+  async sendAdminAcceptAdmin(provider: ContractProvider, via: Sender, queryId: number, value: string) {
+    const messageBody = beginCell()
+      .storeUint(STAKE_OP_ADMIN_ACCEPT_ADMIN, 32) // op 
+      .storeUint(queryId, 64) // query id
+      .endCell();
+    await provider.internal(via, {
+      value,
+      body: messageBody
+    });
+  }
+  
+  async sendAdminUpdateCode(provider: ContractProvider, via: Sender, queryId: number, code: Cell, value: string) {
     const messageBody = beginCell()
       .storeUint(STAKE_OP_ADMIN_UPDATE_CODE, 32) // op 
       .storeUint(queryId, 64) // query id
