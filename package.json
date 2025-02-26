@@ -13,7 +13,6 @@
     "compiletestjettonwallet": "npx func-js contracts/test/jetton/wallet.func --boc build/test_jetton_wallet.cell",
     "compilediscovery": "npx func-js contracts/discovery/discovery.func --boc build/discovery.cell",
     "compilediscoveryreceiver": "npx func-js contracts/discovery/discovery_receiver.func --boc build/discovery_receiver.cell",
-    "test": "jest --verbose"
   },
   "devDependencies": {
     "@ton/blueprint": "^0.22.0",
