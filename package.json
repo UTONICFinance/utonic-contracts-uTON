@@ -12,7 +12,7 @@
     "compiletestjettonminter": "npx func-js contracts/test/jetton/minter.func --boc build/test_jetton_minter.cell",
     "compiletestjettonwallet": "npx func-js contracts/test/jetton/wallet.func --boc build/test_jetton_wallet.cell",
     "compilediscovery": "npx func-js contracts/discovery/discovery.func --boc build/discovery.cell",
-    "compilediscoveryreceiver": "npx func-js contracts/discovery/discovery_receiver.func --boc build/discovery_receiver.cell",
+    "compilediscoveryreceiver": "npx func-js contracts/discovery/discovery_receiver.func --boc build/discovery_receiver.cell"
   },
   "devDependencies": {
     "@ton/blueprint": "^0.22.0",
