@@ -11,3 +11,9 @@ package-lock.json
 *.swp
 *.swc
 *.swo
+
+#config
+*.ini
+
+temp/*
+
