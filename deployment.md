@@ -153,6 +153,15 @@ $ npx blueprint run
 ```
 select `updateMinterContent`, and `content-url` will be set if we successfully run the scripts.
 
+##### 5.3 deploy discovery
+
+fill the `utonic_minter` in `config.ini`, and then
+
+```
+$ npx blueprint run
+```
+
+select `discovery/deployDiscovery`.
 
 ### 6. proxy ton
 
